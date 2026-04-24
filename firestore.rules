@@ -1,0 +1,97 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Basic auth check
+    function isAuth() {
+      return request.auth != null;
+    }
+    
+    // Check if user is the Master Owner
+    function isMasterOwner() {
+      return isAuth() && (
+        request.auth.token.email == 'ckv3232@gmail.com'
+      );
+    }
+
+    // Get user's role and studio from users collection
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+    
+    function userRole() {
+      return getUserData().role;
+    }
+    
+    function userStudio() {
+      return getUserData().studioId;
+    }
+    
+    // Check if operation is for user's studio
+    function isMyStudio(studioId) {
+      return isAuth() && userStudio() == studioId;
+    }
+
+    // USERS: Self only
+    match /users/{userId} {
+      allow read, write: if isAuth() && request.auth.uid == userId;
+    }
+    
+    // STUDIOS: Members only
+    match /studios/{studioId} {
+      allow read: if isMyStudio(studioId) || isMasterOwner();
+      allow create: if isAuth();
+      allow update: if (isMyStudio(studioId) && userRole() == 'admin') || isMasterOwner();
+    }
+    
+    // BOOKINGS
+    match /bookings/{bookingId} {
+      // 1. Studio members can see their studio's bookings
+      // 2. Clients can see bookings matching their email
+      allow read: if isAuth() && (
+        (resource != null && resource.data.studioId == userStudio()) ||
+        (resource != null && resource.data.clientEmail == request.auth.token.email) ||
+        isMasterOwner()
+      );
+      
+      allow create: if isAuth() && (request.resource.data.studioId == userStudio() || isMasterOwner());
+      
+      allow update: if isAuth() && (
+        (resource != null && resource.data.studioId == userStudio()) ||
+        isMasterOwner()
+      );
+      
+      allow delete: if isMasterOwner(); 
+    }
+    
+    // INVENTORY/EQUIPMENT
+    match /inventory/{itemId} {
+      allow read: if isAuth() && (resource.data.studioId == userStudio() || isMasterOwner());
+      allow create: if isAuth() && (request.resource.data.studioId == userStudio() || isMasterOwner());
+      allow update, delete: if isAuth() && (resource.data.studioId == userStudio() || isMasterOwner());
+    }
+    
+    // TRASH
+    match /trash/{itemId} {
+      allow read, create, delete: if isAuth() && (resource.data.studioId == userStudio() || isMasterOwner());
+    }
+
+    // ENQUIRIES: Public can create, ONLY OWNER can manage
+    match /enquiries/{enquiryId} {
+      allow create: if true;
+      allow read, update, delete: if isMasterOwner();
+    }
+
+    // GALLERY & REVIEWS: Public can read, ONLY OWNER can manage
+    match /gallery/{imageId} {
+      allow read: if true;
+      allow create, update, delete: if isMasterOwner();
+    }
+    
+    match /reviews/{reviewId} {
+      allow read: if true;
+      allow create: if true; 
+      allow update, delete: if isMasterOwner();
+    }
+  }
+}

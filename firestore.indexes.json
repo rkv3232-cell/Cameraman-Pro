@@ -1,0 +1,47 @@
+{
+    "indexes": [
+        {
+            "collectionGroup": "expenses",
+            "queryScope": "COLLECTION",
+            "fields": [
+                {
+                    "fieldPath": "studioId",
+                    "order": "ASCENDING"
+                },
+                {
+                    "fieldPath": "date",
+                    "order": "DESCENDING"
+                }
+            ]
+        },
+        {
+            "collectionGroup": "bookings",
+            "queryScope": "COLLECTION",
+            "fields": [
+                {
+                    "fieldPath": "studioId",
+                    "order": "ASCENDING"
+                },
+                {
+                    "fieldPath": "eventDate",
+                    "order": "DESCENDING"
+                }
+            ]
+        },
+        {
+            "collectionGroup": "bookings",
+            "queryScope": "COLLECTION",
+            "fields": [
+                {
+                    "fieldPath": "clientEmail",
+                    "order": "ASCENDING"
+                },
+                {
+                    "fieldPath": "eventDate",
+                    "order": "DESCENDING"
+                }
+            ]
+        }
+    ],
+    "fieldOverrides": []
+}
