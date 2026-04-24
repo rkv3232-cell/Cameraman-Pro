@@ -17,14 +17,18 @@ import {
     BabuAction,
     BabuContext
 } from '../lib/babuIntelligence';
-import { format, isToday } from 'date-fns';
+import { format, isToday, isTomorrow, isPast } from 'date-fns';
 import { sendWhatsAppMessage } from '../utils/whatsapp';
 
-// Helper to convert Timestamp to Date
-const toDate = (timestamp: any): Date => {
-    return timestamp?.toDate ? timestamp.toDate() : new Date(timestamp);
-};
+// ─── Helper ────────────────────────────────────────────────────────────────────
+const toDate = (timestamp: any): Date =>
+    timestamp?.toDate ? timestamp.toDate() : new Date(timestamp);
 
+const fmt = (d: any) => format(toDate(d), 'dd MMM yyyy');
+const fmtMoney = (paise: number) =>
+    `₹${(paise / 100).toLocaleString('en-IN')}`;
+
+// ─── Types ─────────────────────────────────────────────────────────────────────
 export interface Message {
     id: string;
     role: 'user' | 'assistant';
@@ -33,20 +37,81 @@ export interface Message {
     actions?: BabuAction[];
 }
 
-/**
- * Context memory for JARVIS-like behavior
- */
 interface ConversationContext {
-    lastBookingMentioned?: string;
-    lastClientMentioned?: string;
-    lastTopicMentioned?: string;
+    lastBookingId?: string;
+    lastClientName?: string;
+    lastTopic?: string;
     activeBookings?: any[];
-    activeAlert?: string;
 }
 
+// ─── Build rich context string for AI ─────────────────────────────────────────
+function buildRichContext(
+    bookings: any[],
+    inventory: any[],
+    userName?: string,
+    userRole?: string
+): string {
+    const now = new Date();
+
+    const todayBookings = bookings.filter(b => isToday(toDate(b.eventDate)));
+    const tomorrowBookings = bookings.filter(b => isTomorrow(toDate(b.eventDate)));
+    const pendingConfirm = bookings.filter(b => b.status === 'pending');
+    const pendingPayments = bookings.filter(b =>
+        (b.financials?.balanceDue ?? 0) > 0
+    );
+    const conflicts = detectEquipmentConflicts(bookings);
+
+    const formatBooking = (b: any) =>
+        `• **${b.clientName}** (${b.clientPhone}) — ${b.eventType ?? 'Event'} @ ${b.venue} | ${fmt(b.eventDate)} | Total: ${fmtMoney(b.financials?.totalAmount ?? 0)} | Due: ${fmtMoney(b.financials?.balanceDue ?? 0)} | Status: ${b.status}`;
+
+    const lines = [
+        `User: ${userName ?? 'Owner'} (${userRole ?? 'admin'})`,
+        `Date/Time: ${format(now, 'dd MMM yyyy, hh:mm a')}`,
+        `Total bookings: ${bookings.length}`,
+        ``,
+        `📅 TODAY's bookings (${todayBookings.length}):`,
+        todayBookings.length > 0
+            ? todayBookings.map(formatBooking).join('\n')
+            : 'कोई shoot नहीं है।',
+        ``,
+        `📅 TOMORROW's bookings (${tomorrowBookings.length}):`,
+        tomorrowBookings.length > 0
+            ? tomorrowBookings.slice(0, 5).map(formatBooking).join('\n')
+            : 'कोई booking नहीं।',
+        ``,
+        `⏳ PENDING confirmation (${pendingConfirm.length}):`,
+        pendingConfirm.length > 0
+            ? pendingConfirm.slice(0, 5).map(formatBooking).join('\n')
+            : 'कोई नहीं।',
+        ``,
+        `💰 PENDING payments (${pendingPayments.length}):`,
+        pendingPayments.length > 0
+            ? pendingPayments.slice(0, 5).map(b =>
+                `• ${b.clientName}: ${fmtMoney(b.financials?.balanceDue ?? 0)} due`
+            ).join('\n')
+            : 'कोई नहीं।',
+        ``,
+        `⚠️ Equipment conflicts: ${conflicts.length}`,
+        `📦 Inventory items: ${inventory.length}`,
+        ``,
+        `ALL RECENT BOOKINGS (last 8):`,
+        bookings
+            .slice()
+            .sort((a, b) => toDate(b.eventDate).getTime() - toDate(a.eventDate).getTime())
+            .slice(0, 8)
+            .map(formatBooking).join('\n'),
+    ];
+
+    return lines.join('\n');
+}
+
+// ─── Main Hook ─────────────────────────────────────────────────────────────────
 /**
- * BĀBU - Autonomous JARVIS-like AI Agent Hook
- * Speaks first, remembers context, acts proactively
+ * BĀBU v2 — Advanced JARVIS-like AI Agent Hook
+ * • Multi-turn conversation history
+ * • Rich real-time context
+ * • Smarter local intent detection with actual data
+ * • No more context loss or generic loops
  */
 export function useBabu() {
     const [isOpen, setIsOpen] = useState(false);
@@ -64,12 +129,12 @@ export function useBabu() {
 
     const greetingShownRef = useRef(false);
     const voiceGreetingRef = useRef(false);
+    // Keep a ref of messages for use inside callbacks without stale closure
+    const messagesRef = useRef<Message[]>([]);
+    messagesRef.current = messages;
 
-    /**
-     * AUTO-GREETING: Speak first on dashboard load (JARVIS behavior)
-     */
+    // ─── AUTO-GREETING ──────────────────────────────────────────────────────────
     useEffect(() => {
-        // Only greet once on dashboard and when bookings are loaded
         if (
             location.pathname === '/dashboard' &&
             !greetingShownRef.current &&
@@ -79,376 +144,230 @@ export function useBabu() {
             greetingShownRef.current = true;
             setHasGreeted(true);
 
-            // Small delay for natural feel
             setTimeout(() => {
                 const greeting = generateAutoGreeting();
                 addMessage('assistant', greeting.message, greeting.actions, true);
-
-                // Auto-open chat for first-time greeting
-                if (!isOpen) {
-                    setIsOpen(true);
-                }
+                if (!isOpen) setIsOpen(true);
             }, 800);
         }
     }, [location.pathname, bookings, userProfile, isOpen]);
 
-    /**
-     * VOICE GREETING: Speak auto-greeting when voice is activated
-     */
+    // ─── VOICE GREETING ─────────────────────────────────────────────────────────
     useEffect(() => {
-        if (
-            voiceActivated &&
-            !voiceGreetingRef.current &&
-            hasGreeted &&
-            messages.length > 0
-        ) {
+        if (voiceActivated && !voiceGreetingRef.current && hasGreeted && messages.length > 0) {
             voiceGreetingRef.current = true;
-
-            // Speak the first message
-            const firstMessage = messages[0];
-            if (firstMessage?.role === 'assistant') {
-                setTimeout(() => {
-                    voiceService.speak(firstMessage.content);
-                }, 500);
+            const first = messages[0];
+            if (first?.role === 'assistant') {
+                setTimeout(() => voiceService.speak(first.content), 500);
             }
         }
     }, [voiceActivated, hasGreeted, messages]);
 
-    /**
-     * Generate automatic greeting with live data (JARVIS-style)
-     */
+    // ─── SMART AUTO-GREETING with actual data ──────────────────────────────────
     const generateAutoGreeting = useCallback(() => {
         const hour = new Date().getHours();
-        let timeGreeting = 'शुभ संध्या'; // Evening (default)
+        const salutation = hour < 12 ? 'सुप्रभात' : hour < 17 ? 'नमस्ते' : 'शुभ संध्या';
+        const name = userProfile?.name ?? 'Boss';
 
-        if (hour < 12) timeGreeting = 'सुप्रभात';
-        else if (hour < 17) timeGreeting = 'नमस्ते';
-        else timeGreeting = 'शुभ संध्या';
-
-        const userName = userProfile?.name || 'Boss';
-
-        // Calculate live stats
-        const todayShots = bookings.filter(b => {
-            const date = toDate(b.eventDate);
-            return isToday(date) && (b.status === 'confirmed' || b.status === 'pending');
-        }).length;
-
+        const todayShots = bookings.filter(b => isToday(toDate(b.eventDate)));
         const pendingPayments = findBookingsWithPendingPayment(bookings);
-        const totalPending = pendingPayments.reduce((sum, b) => sum + b.financials.balanceDue, 0) / 100;
-
-        const pendingPP = getPendingPostProduction(bookings);
-        const editingPending = pendingPP.length;
-
-        const unconfirmedBookings = bookings.filter(b => b.status === 'pending').length;
-
+        const totalPending = pendingPayments.reduce((s, b) => s + (b.financials?.balanceDue ?? 0), 0);
+        const unconfirmed = bookings.filter(b => b.status === 'pending');
         const conflicts = detectEquipmentConflicts(bookings);
+        const pendingPP = getPendingPostProduction(bookings);
 
-        let greeting = `${timeGreeting} ${userName} 👋\n\n**आज का स्टूडियो:**\n`;
+        let msg = `${salutation} **${name}** 👋\n\n**आज का स्टूडियो:**\n`;
 
-        if (todayShots > 0) {
-            greeting += `• ${todayShots} shoot${todayShots > 1 ? 's' : ''} scheduled\n`;
+        if (todayShots.length > 0) {
+            msg += todayShots.map(b =>
+                `• 📅 ${b.clientName} — ${b.eventType ?? 'Shoot'} @ ${b.venue}`
+            ).join('\n') + '\n';
         } else {
-            greeting += `• कोई shoot नहीं है\n`;
+            msg += `• कोई shoot नहीं है\n`;
         }
 
         if (totalPending > 0) {
-            greeting += `• ₹${Math.floor(totalPending).toLocaleString('en-IN')} pending payment (${pendingPayments.length} bookings)\n`;
+            msg += `• 💰 ${fmtMoney(totalPending)} pending (${pendingPayments.length} bookings)\n`;
         }
-
-        if (editingPending > 0) {
-            greeting += `• ${editingPending} editing pending\n`;
+        if (unconfirmed.length > 0) {
+            msg += `• ⏳ ${unconfirmed.length} booking confirmation बाकी\n`;
         }
-
-        if (unconfirmedBookings > 0) {
-            greeting += `• ${unconfirmedBookings} booking confirmation बाकी\n`;
+        if (pendingPP.length > 0) {
+            msg += `• 🎬 ${pendingPP.length} editing pending\n`;
         }
-
         if (conflicts.length > 0) {
-            greeting += `• ⚠️ ${conflicts.length} equipment conflicts!\n`;
+            msg += `• ⚠️ ${conflicts.length} equipment conflict!\n`;
         }
 
-        if (todayShots === 0 && totalPending === 0 && editingPending === 0 && unconfirmedBookings === 0) {
-            greeting += `\n✅ **सब कुछ ठीक है!**\n`;
+        if (todayShots.length === 0 && totalPending === 0 && unconfirmed.length === 0) {
+            msg += `\n✅ **सब कुछ ठीक है!**\n`;
         }
 
-        greeting += `\n**बताइए क्या करना है?**`;
+        msg += `\n**बताइए क्या करना है?**`;
 
         const actions: BabuAction[] = [];
-
-        if (todayShots > 0) {
-            actions.push({
-                type: 'navigate',
-                label: '📅 Today का Schedule',
-                data: { page: '/calendar' },
-                style: 'primary'
-            });
+        if (todayShots.length > 0) {
+            actions.push({ type: 'navigate', label: '📅 Today का Schedule', data: { page: '/calendar' }, style: 'primary' });
         }
-
         if (pendingPayments.length > 0) {
-            actions.push({
-                type: 'navigate',
-                label: `💰 Pending Payments (${pendingPayments.length})`,
-                data: { page: '/bookings' },
-                style: 'secondary'
-            });
+            actions.push({ type: 'navigate', label: `💰 Pending Payments (${pendingPayments.length})`, data: { page: '/bookings' }, style: 'secondary' });
         }
-
         if (conflicts.length > 0) {
-            actions.push({
-                type: 'navigate',
-                label: '🚨 Equipment Conflicts',
-                data: { page: '/inventory' },
-                style: 'danger'
-            });
+            actions.push({ type: 'navigate', label: '🚨 Equipment Conflicts', data: { page: '/inventory' }, style: 'danger' });
         }
 
-        return { message: greeting, actions };
+        return { message: msg, actions };
     }, [bookings, userProfile]);
 
-    /**
-     * Process short natural commands (JARVIS-style)
-     */
-    const processShortCommand = useCallback((text: string): { handled: boolean; response?: string; actions?: BabuAction[] } => {
-        const lower = text.toLowerCase().trim();
+    // ─── SMART LOCAL INTENT DETECTION ──────────────────────────────────────────
+    const processLocalIntent = useCallback((text: string, babuCtx: BabuContext): {
+        handled: boolean; response?: string; actions?: BabuAction[]
+    } => {
+        const q = text.toLowerCase().trim();
 
-        // Context-aware commands
-        if (context.lastBookingMentioned) {
-            const booking = bookings.find(b => b.id === context.lastBookingMentioned);
-
-            if (!booking) {
-                return { handled: false };
-            }
-
-            // "detail do" / "open kar do" / "dekho" / "show"
-            if (lower.match(/^(detail|open|dekh|show|बताओ|खोल)/)) {
-                const date = toDate(booking.eventDate);
+        // ── If user says "sab", "details", "puri", etc after a booking was mentioned ──
+        if (context.lastBookingId && q.match(/^(sab|detail|puri|poori|bata|khol|open|show|dekh)/)) {
+            const b = bookings.find(x => x.id === context.lastBookingId);
+            if (b) {
+                const due = b.financials?.balanceDue ?? 0;
                 return {
                     handled: true,
-                    response: `**${booking.clientName}** की booking:\n\n` +
-                        `📅 Date: ${format(date, 'dd MMM yyyy')}\n` +
-                        `📍 Venue: ${booking.venue}\n` +
-                        `💰 Total: ₹${(booking.financials.totalAmount / 100).toLocaleString('en-IN')}\n` +
-                        `⚠️ Due: ₹${(booking.financials.balanceDue / 100).toLocaleString('en-IN')}\n`,
-                    actions: generateBookingActions(booking)
-                };
-            }
-
-            // "call kar do" / "phone kar"
-            if (lower.match(/^(call|phone|फोन)/)) {
-                window.location.href = `tel:${booking.clientPhone}`;
-                return {
-                    handled: true,
-                    response: `📞 Calling ${booking.clientName}...`,
-                    actions: []
-                };
-            }
-
-            // "message bhej do" / "whatsapp"
-            if (lower.match(/^(message|whatsapp|msg|भेज)/)) {
-                const defaultMsg = `नमस्ते ${booking.clientName} जी,\n\nआपकी booking के बारे में बात करनी थी।\n\nधन्यवाद,\nCameraman Pro`;
-                sendWhatsAppMessage(booking.clientPhone, defaultMsg);
-                return {
-                    handled: true,
-                    response: `💬 WhatsApp खोल रहा हूँ ${booking.clientName} के लिए...`,
-                    actions: []
-                };
-            }
-
-            // "confirm kar do" / "haan kar do"
-            if (lower.match(/^(confirm|haan|han|yes|ठीक|कर दो)/)) {
-                return {
-                    handled: true,
-                    response: `✅ मैं ${booking.clientName} की booking confirm कर दूँ?\n\n₹${(booking.financials.balanceDue / 100).toLocaleString('en-IN')} pending है।`,
-                    actions: [
-                        {
-                            type: 'update',
-                            label: '✅ हाँ, Confirm करो',
-                            data: { bookingId: booking.id, action: 'confirm' },
-                            style: 'success'
-                        },
-                        {
-                            type: 'navigate',
-                            label: '📄 पहले Details देखूँ',
-                            data: { page: `/bookings/${booking.id}` },
-                            style: 'secondary'
-                        }
-                    ]
+                    response:
+                        `**${b.clientName}** की पूरी booking:\n\n` +
+                        `📅 Date: ${fmt(b.eventDate)}\n` +
+                        `📍 Venue: ${b.venue}\n` +
+                        `📞 Phone: ${b.clientPhone}\n` +
+                        `🎬 Event: ${b.eventType ?? 'N/A'}\n` +
+                        `💰 Total: ${fmtMoney(b.financials?.totalAmount ?? 0)}\n` +
+                        (due > 0 ? `⚠️ Due: ${fmtMoney(due)}\n` : `✅ Fully Paid\n`) +
+                        `📋 Status: ${b.status}`,
+                    actions: generateBookingActions(b)
                 };
             }
         }
 
-        // General commands without context
-        if (lower.match(/^(pending|payment|dues|बाकी)/)) {
+        // ── Context: call/whatsapp after a booking mentioned ──
+        if (context.lastBookingId) {
+            const b = bookings.find(x => x.id === context.lastBookingId);
+            if (b) {
+                if (q.match(/^(call|phone|फोन|bol)/)) {
+                    window.location.href = `tel:${b.clientPhone}`;
+                    return { handled: true, response: `📞 ${b.clientName} को call कर रहा हूँ...`, actions: [] };
+                }
+                if (q.match(/^(whatsapp|msg|message|bhej|bhejo|wa)/)) {
+                    sendWhatsAppMessage(b.clientPhone, `नमस्ते ${b.clientName} जी,\n\nCameraman Pro की तरफ से संपर्क कर रहे हैं।\n\nधन्यवाद`);
+                    return { handled: true, response: `💬 ${b.clientName} को WhatsApp भेज रहा हूँ...`, actions: [] };
+                }
+            }
+        }
+
+        // ── "Aaj ki" — show today's bookings with full details ──
+        if (q.match(/(aaj|आज|today)/)) {
+            const today = bookings.filter(b => isToday(toDate(b.eventDate)));
+            if (today.length === 0) {
+                return { handled: true, response: '📅 आज कोई shoot नहीं है। Free day! 🎉', actions: [{ type: 'navigate', label: '📅 Calendar देखें', data: { page: '/calendar' }, style: 'secondary' }] };
+            }
+            const resp = `**आज की ${today.length} Booking(s):**\n\n` +
+                today.map(b => {
+                    const due = b.financials?.balanceDue ?? 0;
+                    return `📅 **${b.clientName}** — ${b.eventType ?? 'Shoot'}\n   📍 ${b.venue}\n   📞 ${b.clientPhone}\n   ${due > 0 ? `⚠️ Due: ${fmtMoney(due)}` : '✅ Paid'}`;
+                }).join('\n\n');
+
+            if (today.length === 1) {
+                setContext(prev => ({ ...prev, lastBookingId: today[0].id, lastClientName: today[0].clientName }));
+            }
+            return {
+                handled: true,
+                response: resp,
+                actions: today.map(b => ({ type: 'navigate' as const, label: `📄 ${b.clientName}`, data: { page: `/bookings/${b.id}` }, style: 'primary' as const }))
+            };
+        }
+
+        // ── "Kal ki" — tomorrow ──
+        if (q.match(/(kal|कल|tomorrow)/)) {
+            const tmrw = bookings.filter(b => isTomorrow(toDate(b.eventDate)));
+            if (tmrw.length === 0) {
+                return { handled: true, response: '📅 कल कोई booking नहीं है।', actions: [] };
+            }
+            const resp = `**कल की ${tmrw.length} Booking(s):**\n\n` +
+                tmrw.map(b =>
+                    `📅 **${b.clientName}** — ${b.eventType ?? 'Shoot'} @ ${b.venue}\n   Due: ${fmtMoney(b.financials?.balanceDue ?? 0)}`
+                ).join('\n\n');
+            return {
+                handled: true,
+                response: resp,
+                actions: tmrw.map(b => ({ type: 'navigate' as const, label: `📄 ${b.clientName}`, data: { page: `/bookings/${b.id}` }, style: 'primary' as const }))
+            };
+        }
+
+        // ── Pending payments ──
+        if (q.match(/(pending|payment|dues|baki|bakaya|बाकी|पेमेंट)/)) {
             const pending = findBookingsWithPendingPayment(bookings);
-            if (pending.length === 0) {
-                return {
-                    handled: true,
-                    response: '✅ कोई pending payment नहीं है!',
-                    actions: []
-                };
-            }
-
+            if (pending.length === 0) return { handled: true, response: '✅ कोई pending payment नहीं है!', actions: [] };
+            const total = pending.reduce((s, b) => s + (b.financials?.balanceDue ?? 0), 0);
+            const resp = `**${pending.length} Pending Payments — Total ${fmtMoney(total)}:**\n\n` +
+                pending.slice(0, 5).map(b =>
+                    `• **${b.clientName}**: ${fmtMoney(b.financials?.balanceDue ?? 0)}`
+                ).join('\n');
             return {
                 handled: true,
-                response: `**${pending.length} Pending Payments:**\n\n` +
-                    pending.slice(0, 5).map(b =>
-                        `• ${b.clientName}: ₹${(b.financials.balanceDue / 100).toLocaleString('en-IN')}`
-                    ).join('\n'),
+                response: resp,
                 actions: pending.slice(0, 3).map(b => ({
-                    type: 'whatsapp',
+                    type: 'whatsapp' as const,
                     label: `💬 ${b.clientName}`,
-                    data: {
-                        phone: b.clientPhone,
-                        message: `नमस्ते ${b.clientName} जी,\n\n₹${(b.financials.balanceDue / 100).toLocaleString('en-IN')} का payment pending है।\n\nधन्यवाद`
-                    },
-                    style: 'success'
+                    data: { phone: b.clientPhone, message: `नमस्ते ${b.clientName} जी,\n₹${(b.financials?.balanceDue ?? 0) / 100} का payment pending है।` },
+                    style: 'success' as const
                 }))
             };
         }
 
-        if (lower.match(/^(आज|today|shoot)/)) {
-            const todayShots = bookings.filter(b => {
-                const date = toDate(b.eventDate);
-                return isToday(date);
-            });
-
-            if (todayShots.length === 0) {
-                return {
-                    handled: true,
-                    response: '📅 आज कोई shoot नहीं है। Free day! 🎉',
-                    actions: []
-                };
-            }
-
+        // ── Unconfirmed / pending confirmations ──
+        if (q.match(/(unconfirmed|confirm|pending booking|confir|कन्फर्म)/)) {
+            const unconf = bookings.filter(b => b.status === 'pending');
+            if (unconf.length === 0) return { handled: true, response: '✅ सभी bookings confirm हैं!', actions: [] };
+            const resp = `**${unconf.length} Unconfirmed Bookings:**\n\n` +
+                unconf.slice(0, 5).map(b =>
+                    `• **${b.clientName}** — ${fmt(b.eventDate)} @ ${b.venue}`
+                ).join('\n');
             return {
                 handled: true,
-                response: `**आज की Shoots (${todayShots.length}):**\n\n` +
-                    todayShots.map(b =>
-                        `• ${b.clientName} - ${b.eventType} @ ${b.venue}`
-                    ).join('\n'),
-                actions: todayShots.map(b => ({
-                    type: 'navigate',
-                    label: `📄 ${b.clientName}`,
-                    data: { page: `/bookings/${b.id}` },
-                    style: 'primary'
-                }))
+                response: resp,
+                actions: unconf.slice(0, 3).map(b => ({ type: 'navigate' as const, label: `📄 ${b.clientName}`, data: { page: `/bookings/${b.id}` }, style: 'primary' as const }))
             };
         }
 
-        return { handled: false };
-    }, [bookings, context]);
-
-    /**
-     * Process user message with context awareness
-     */
-    const processLocalIntent = useCallback((query: string, babuContext: BabuContext) => {
-        const queryLower = query.toLowerCase().trim();
-
-        // First, try short command processing
-        const shortCmd = processShortCommand(query);
-        if (shortCmd.handled) {
-            return {
-                handled: true,
-                response: shortCmd.response || '',
-                actions: shortCmd.actions || []
-            };
-        }
-
-        // Date-based search
-        if (queryLower.match(/(आज|कल|today|tomorrow|\d{1,2})/)) {
-            const results = findBookingsByDate(babuContext.bookings, query);
-
-            if (results.length === 0) {
+        // ── Client name search ──
+        if (q.length > 2 && !q.match(/(pending|payment|aaj|kal|today|tomorrow)/)) {
+            const results = findBookingsByClient(babuCtx.bookings, text);
+            if (results.length > 0) {
+                const client = results[0];
+                setContext(prev => ({ ...prev, lastBookingId: client.id, lastClientName: client.clientName }));
+                const history = analyzeClientHistory(babuCtx.bookings, client.clientName);
+                const due = client.financials?.balanceDue ?? 0;
                 return {
                     handled: true,
-                    response: 'इस date पर कोई booking नहीं है। 📅',
-                    actions: []
-                };
-            }
-
-            if (results.length === 1) {
-                const booking = results[0];
-                const date = toDate(booking.eventDate);
-                const due = booking.financials.balanceDue / 100;
-
-                // Store in context
-                setContext(prev => ({
-                    ...prev,
-                    lastBookingMentioned: booking.id,
-                    lastClientMentioned: booking.clientName
-                }));
-
-                return {
-                    handled: true,
-                    response: `**${format(date, 'dd MMM')} की Booking:**\n\n` +
-                        `👤 Client: ${booking.clientName}\n` +
-                        `📞 Phone: ${booking.clientPhone}\n` +
-                        `📍 Venue: ${booking.venue}\n` +
-                        `💰 Total: ₹${(booking.financials.totalAmount / 100).toLocaleString('en-IN')}\n` +
-                        (due > 0 ? `⚠️ Due: ₹${due.toLocaleString('en-IN')}\n` : '✅ Fully Paid\n'),
-                    actions: generateBookingActions(booking)
-                };
-            }
-
-            // Multiple results
-            setContext(prev => ({
-                ...prev,
-                activeBookings: results
-            }));
-
-            return {
-                handled: true,
-                response: `**${results.length} Bookings Found:**\n\n` +
-                    results.map((b, i) =>
-                        `${i + 1}. ${b.clientName} - ${b.venue}`
-                    ).join('\n') +
-                    '\n\n**कौन सी booking चाहिए?**',
-                actions: results.map(b => ({
-                    type: 'navigate',
-                    label: `${b.clientName}`,
-                    data: { page: `/bookings/${b.id}` },
-                    style: 'primary'
-                }))
-            };
-        }
-
-        // Client search
-        if (queryLower.length > 2 && !queryLower.includes('pending')) {
-            const clientResults = findBookingsByClient(babuContext.bookings, query);
-            if (clientResults.length > 0) {
-                const client = clientResults[0];
-
-                setContext(prev => ({
-                    ...prev,
-                    lastBookingMentioned: client.id,
-                    lastClientMentioned: client.clientName
-                }));
-
-                const history = analyzeClientHistory(babuContext.bookings, client.clientName);
-
-                return {
-                    handled: true,
-                    response: history.summary + `\n\n**Latest booking:**\n` +
-                        `📅 ${format(toDate(client.eventDate), 'dd MMM yyyy')}\n` +
-                        `💰 ₹${(client.financials.balanceDue / 100).toLocaleString('en-IN')} pending`,
+                    response:
+                        `${history.summary}\n\n` +
+                        `**Latest booking:**\n` +
+                        `📅 ${fmt(client.eventDate)} @ ${client.venue}\n` +
+                        `💰 ${fmtMoney(client.financials?.totalAmount ?? 0)} | ` +
+                        (due > 0 ? `⚠️ ${fmtMoney(due)} due` : `✅ Paid`),
                     actions: generateBookingActions(client)
                 };
             }
         }
 
-        return { handled: false, response: '', actions: [] };
-    }, [processShortCommand]);
+        return { handled: false };
+    }, [bookings, context]);
 
-    /**
-     * Send message to BĀBU
-     */
+    // ─── SEND MESSAGE ───────────────────────────────────────────────────────────
     const sendMessage = useCallback(async (text: string) => {
         if (!text.trim()) return;
 
         addMessage('user', text);
         setIsLoading(true);
 
-        const babuContext: BabuContext = {
+        const babuCtx: BabuContext = {
             bookings,
             inventory,
             currentDate: new Date(),
@@ -456,112 +375,87 @@ export function useBabu() {
             userRole: userProfile?.role
         };
 
-        // Try local processing first
-        const localResult = processLocalIntent(text, babuContext);
-
-        if (localResult.handled) {
+        // Try fast local handling first
+        const local = processLocalIntent(text, babuCtx);
+        if (local.handled) {
             setTimeout(() => {
-                addMessage('assistant', localResult.response, localResult.actions as BabuAction[]);
+                addMessage('assistant', local.response!, local.actions as BabuAction[]);
                 setIsLoading(false);
-            }, 300);
+            }, 250);
             return;
         }
 
-        // Fallback to AI with live studio context
+        // Fallback to Groq AI with full context + conversation history
         try {
-            // Build a concise context string for BĀBU
-            const pendingCount = bookings.filter((b: any) => b.status === 'pending').length;
-            const todayBookings = bookings.filter((b: any) => {
-                const d = b.eventDate?.toDate ? b.eventDate.toDate() : new Date(b.eventDate);
-                return d.toDateString() === new Date().toDateString();
-            }).length;
+            const richContext = buildRichContext(bookings, inventory, userProfile?.name, userProfile?.role);
 
-            const contextInfo = [
-                `User: ${userProfile?.name || 'Studio Owner'} (${userProfile?.role || 'admin'})`,
-                `Total bookings: ${bookings.length}`,
-                `Pending confirmations: ${pendingCount}`,
-                `Today's shoots: ${todayBookings}`,
-                `Total equipment items: ${inventory.length}`
-            ].join('\n');
+            // Build conversation history from messages (exclude greeting for brevity)
+            const history = messagesRef.current
+                .filter(m => m.role === 'user' || m.role === 'assistant')
+                .slice(-12) // last 6 exchanges
+                .map(m => ({ role: m.role, content: m.content }));
 
-            const aiResponse = await sendMessageToBabu(text, contextInfo);
+            const aiResponse = await sendMessageToBabu(text, richContext, history);
             addMessage('assistant', aiResponse);
         } catch (error: any) {
-            toast.error("BĀBU से connect नहीं हो पाया। कृपया फिर से try करें।");
-            console.error("AI Error:", error?.message || error);
-            addMessage('assistant', '❌ AI server se connect nahi ho pa raha. Thodi der mein try karein.');
+            toast.error("BĀBU से connect नहीं हो पाया।");
+            console.error("AI Error:", error?.message ?? error);
+            addMessage('assistant', '❌ AI server से connect नहीं हो पाया। थोड़ी देर में try करें।');
         } finally {
             setIsLoading(false);
         }
     }, [bookings, inventory, userProfile, processLocalIntent]);
 
-    /**
-     * Add message to chat
-     */
-    const addMessage = useCallback((role: 'user' | 'assistant', content: string, actions?: BabuAction[], withVoice: boolean = false) => {
-        const message: Message = {
-            id: Date.now().toString() + Math.random(),
+    // ─── ADD MESSAGE ────────────────────────────────────────────────────────────
+    const addMessage = useCallback((
+        role: 'user' | 'assistant',
+        content: string,
+        actions?: BabuAction[],
+        withVoice: boolean = false
+    ) => {
+        const msg: Message = {
+            id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
             role,
             content,
             timestamp: new Date(),
             actions
         };
-        setMessages(prev => [...prev, message]);
+        setMessages(prev => [...prev, msg]);
 
-        // Speak assistant messages if voice is activated
         if (role === 'assistant' && (voiceActivated || withVoice) && voiceService.isActivated()) {
-            setTimeout(() => {
-                voiceService.speak(content);
-            }, 100);
+            setTimeout(() => voiceService.speak(content), 100);
         }
     }, [voiceActivated]);
 
-    /**
-     * Handle voice activation
-     */
-    const handleVoiceActivation = useCallback(() => {
-        setVoiceActivated(true);
-    }, []);
-
-    /**
-     * Execute action from BĀBU
-     */
+    // ─── EXECUTE ACTION ─────────────────────────────────────────────────────────
     const executeAction = useCallback((action: BabuAction) => {
         switch (action.type) {
             case 'navigate':
-                if (action.data?.page) {
-                    navigate(action.data.page);
-                }
+                if (action.data?.page) navigate(action.data.page);
                 break;
-
             case 'whatsapp':
-                if (action.data?.phone && action.data?.message) {
+                if (action.data?.phone && action.data?.message)
                     sendWhatsAppMessage(action.data.phone, action.data.message);
-                }
                 break;
-
             case 'call':
-                if (action.data?.phone) {
+                if (action.data?.phone)
                     window.location.href = `tel:${action.data.phone}`;
-                }
                 break;
-
             case 'update':
-                // Handle booking updates
-                addMessage('assistant', 'मैं इसे update कर रहा हूँ...');
-                // TODO: Implement actual update logic
+                addMessage('assistant', 'अभी इसे update kar raha hun...');
                 break;
-
             default:
                 console.warn('Unknown action:', action);
         }
     }, [navigate, addMessage]);
 
-    /**
-     * Toggle chat visibility
-     */
-    const toggle = useCallback(() => {
-        setIsOpen(prev => !prev);
+    const toggle = useCallback(() => setIsOpen(prev => !prev), []);
+    const handleVoiceActivation = useCallback(() => setVoiceActivated(true), []);
+    const clearChat = useCallback(() => {
+        setMessages([]);
+        greetingShownRef.current = false;
+        setHasGreeted(false);
+        setContext({});
     }, []);
 
     return {
@@ -574,6 +468,7 @@ export function useBabu() {
         hasGreeted,
         context,
         voiceActivated,
-        handleVoiceActivation
+        handleVoiceActivation,
+        clearChat
     };
 }

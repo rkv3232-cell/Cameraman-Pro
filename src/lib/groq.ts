@@ -1,80 +1,68 @@
 /// <reference types="vite/client" />
 
 /**
- * groq.ts
- * ─────────────────────────────────────────────────────────────────────────────
- * Groq AI service layer for Cameraman Pro.
- * Replaces the old Puter AI integration.
- *
- * Two exports:
- *   sendMessageToBabu  — conversational AI for BĀBU chat assistant
- *   callGroq           — generic AI call for quote/caption/budget generators
- * ─────────────────────────────────────────────────────────────────────────────
+ * groq.ts — Advanced AI service layer for Cameraman Pro (BĀBU v2)
+ * ─────────────────────────────────────────────────────────────────
+ * Improvements:
+ *   • Multi-turn conversation history (no more context loss)
+ *   • Rich system prompt — always shows actual data, not just counts
+ *   • Shorter, actionable replies in natural Hindi
+ *   • No self-introduction loop
  */
 
 const GROQ_ENDPOINT = "https://api.groq.com/openai/v1/chat/completions";
 const GROQ_MODEL = "llama-3.3-70b-versatile";
 
-const BABU_SYSTEM_PROMPT = `Identity & Purpose
-------------------
-You are "BĀBU" — the Studio Intelligence Manager for "Cameraman Pro".
-Primary job:
-  • Accept structured user requests (text or uploaded images) and act as a studio assistant.
-  • When given booking/enquiry details (typed or via uploaded image), validate, extract structured fields, confirm with user (if needed), then create or update Firestore documents.
-  • When admin triggers actions (convert enquiry → booking, assign gear/team), perform them and produce short human-friendly confirmations in Hindi (primary) and optionally English.
-Tone:
-  • Professional, helpful, concise, polite.
-  • Use Hindi for user-facing messages by default (simple, natural Hindi), include English only if requested.
-  • Address admin as neutral (use studio-name/role). For casual dev/testing messages you may be a little friendly but keep logs technical.
+// ─── Advanced System Prompt ────────────────────────────────────────────────────
+export const BABU_SYSTEM_PROMPT = `
+तुम "BĀBU" हो — Cameraman Pro Studio का AI Manager।
+Owner: Chandan Kumar Verma (8601343232)।
 
-API / Auth Configuration
-------------------------
-Primary LLM endpoint: Groq OpenAI-compatible endpoint for chat/completions.
+━━━━━ PERSONALITY ━━━━━
+• छोटे, काम के जवाब दो। फालतू लम्बी बात मत करो।
+• खुद का परिचय बार-बार मत दो। सिर्फ पहली बार।
+• हिंदी में बोलो (simple Hinglish OK)।
+• "क्या मैं आपकी सहायता कर सकता हूँ?" जैसी generic lines मत बोलो।
+• हर जवाब के अंत में एक छोटा काम बताओ जो owner को करना है।
 
-Agent Capabilities (what you must do)
--------------------------------------
-1) Extract booking/enquiry details from text input or images (OCR).
-2) INPUT_SCHEMA (fields to extract & validate)
-   Required: clientName, phone (validate 10 digits/E.164), events (array of {eventName, date, time}), venue, totalPackage.
-   Optional: advanceReceived, notes, selectedEquipment, email, studioId.
-   Post-processing: Compute balanceDue = totalPackage - advanceReceived. Convert dates to ISO-8601 (+05:30).
-3) OUTPUT_SCHEMA
-   On success: {"status":"ok", "action":"created_booking" | "created_enquiry" | "converted_enquiry", "docId":"<id>", "message":"<Hindi confirmation>"}
-   On failure: {"status":"error", "error_code":"<code_type>", "details":"<reason>"}
-4) Firestore actions rules: Return doc id and timestamp to agent (if simulated directly, output the standard format payload).
-5) Image Upload Handling: Extract text, parse fields via OCR results.
-6) WhatsApp/Notification Template (Hindi): Send to client via webhook links including owner number 8601343232 (Chandan Kumar Verma).
-7) Booking Confirmation UI: "Booking (ID: {bookingId}) बना दी गई है — {firstEventDate} को {venue} — शेष राशि ₹{balanceDue}. [Open booking]({adminBookingUrl})"
-8) Validation rules: Phone 10 digits/E.164. Future dates. totalPackage/advanceReceived >= 0.
-9) Multi-event support: Each event in booking.events array.
-10) Error handling: Groq 4xx/5xx or Firestore failure → Hindi error message fallback.
-11) Safety & Permissions: Return payment links, never charge directly. Mask keys.
-12) Languages & Formatting: Hindi user-facing. DD MMM YYYY dates format. Prefix currency with ₹ and comma separators (₹1,90,000).
-13) Ask clarifying questions if required fields are missing or OCR confidence is low.
-14) Developer logs: Output {requestId, extractedFields, validation, firestoreResult, groqResponseSummary} purely in developer contexts.`;
+━━━━━ CRITICAL RULES ━━━━━
+1. जब भी user "booking", "aaj ki", "kal ki", "pending", etc. पूछे — LIVE STUDIO DATA से actual names, dates, venues, amounts निकालो और दिखाओ।
+   ❌ Wrong: "आज 1 shooting है। कौन सी जानकारी चाहिए?"
+   ✅ Right: "आज की booking: Pintu Sharma — Wedding @ Hotel Grand, 6:44 PM। ₹20,000 due।"
 
-// ─── Helper: make a Groq API request ─────────────────────────────────────────
+2. पिछली बातचीत याद रखो। अगर user ने किसी booking के बारे में बात की है, तो वही context use करो।
+   ❌ Wrong: User "sab" पूछे तो परिचय देना शुरू मत करो।
+   ✅ Right: "आज की पूरी booking details: [data]"
 
-async function fetchGroq(messages: { role: string; content: string }[]): Promise<string> {
+3. हर जवाब में जहाँ ज़रूरी हो, ये suggest करो:
+   → 📞 Call करें | 💬 WhatsApp | 📄 Booking खोलें
+
+4. Numbers को ₹ format में लिखो: ₹1,20,000
+   Dates: 24 Apr 2026 format में।
+
+5. अगर कोई data नहीं मिला, तो honestly बोलो: "इस नाम/date की कोई booking नहीं मिली।"
+
+━━━━━ RESPONSE FORMAT ━━━━━
+• Max 150 words per reply।
+• Bullet points use करो जब multiple items हों।
+• Bold (**text**) important info के लिए।
+• Emoji use करो जहाँ natural लगे — 📅 💰 📞 ✅ ⚠️
+`;
+
+// ─── Helper: Groq API call ─────────────────────────────────────────────────────
+async function fetchGroq(
+    messages: { role: string; content: string }[]
+): Promise<string> {
     const apiKey = import.meta.env.VITE_GROQ_API_KEY;
 
     if (!apiKey) {
-        throw new Error("VITE_GROQ_API_KEY is not set. Please add it to your .env file.");
+        throw new Error("VITE_GROQ_API_KEY is not set.");
     }
 
-    // Guard: ensure no message has empty or null content
     const safeMessages = messages.map(m => ({
         role: m.role,
         content: (m.content ?? "").trim() || "(empty)"
     }));
-
-    const payload = {
-        model: GROQ_MODEL,
-        messages: safeMessages,
-        temperature: 0.2, // Lowered temperature for structured extraction deterministic tasks
-        max_tokens: 900,  // Adapted token budget
-        stream: false
-    };
 
     const response = await fetch(GROQ_ENDPOINT, {
         method: "POST",
@@ -82,11 +70,16 @@ async function fetchGroq(messages: { role: string; content: string }[]): Promise
             "Authorization": `Bearer ${apiKey}`,
             "Content-Type": "application/json"
         },
-        body: JSON.stringify(payload)
+        body: JSON.stringify({
+            model: GROQ_MODEL,
+            messages: safeMessages,
+            temperature: 0.4,
+            max_tokens: 600,
+            stream: false
+        })
     });
 
     if (!response.ok) {
-        // Read detailed error body from Groq for proper debugging
         let errorBody = "";
         try {
             const errJson = await response.json();
@@ -101,57 +94,50 @@ async function fetchGroq(messages: { role: string; content: string }[]): Promise
     const data = await response.json();
     const content = data?.choices?.[0]?.message?.content;
 
-    if (!content) {
-        throw new Error("Groq returned an empty response.");
-    }
-
+    if (!content) throw new Error("Groq returned an empty response.");
     return content.trim();
 }
 
-// ─── Export 1: BĀBU Chat Assistant ────────────────────────────────────────────
-
+// ─── Export 1: Multi-turn BĀBU Chat ───────────────────────────────────────────
 /**
- * Send a user message to BĀBU and get a natural language reply.
- * Optionally pass a context string to inject live studio data.
+ * Send a full conversation history to BĀBU along with live context.
+ * history = [{role: 'user'|'assistant', content: '...'}]
  */
 export async function sendMessageToBabu(
     userMessage: string,
-    contextInfo?: string
+    contextInfo?: string,
+    history: { role: string; content: string }[] = []
 ): Promise<string> {
-    if (!userMessage || !userMessage.trim()) {
-        return "कृपया कुछ पूछें। (Please type a message.)";
+    if (!userMessage?.trim()) {
+        return "कृपया कुछ पूछें।";
     }
 
     const systemContent = contextInfo
-        ? `${BABU_SYSTEM_PROMPT}\n\n--- LIVE STUDIO DATA ---\n${contextInfo}`
+        ? `${BABU_SYSTEM_PROMPT}\n\n━━━━━ LIVE STUDIO DATA (अभी का real data) ━━━━━\n${contextInfo}\n\nइसी data को use करके जवाब दो।`
         : BABU_SYSTEM_PROMPT;
 
+    // Build full conversation: system → history → new user message
+    const messages = [
+        { role: "system", content: systemContent },
+        // Keep last 10 exchanges to avoid token overflow
+        ...history.slice(-10),
+        { role: "user", content: userMessage.trim() }
+    ];
+
     try {
-        return await fetchGroq([
-            { role: "system", content: systemContent },
-            { role: "user", content: userMessage.trim() }
-        ]);
+        return await fetchGroq(messages);
     } catch (error) {
         console.error("AI Error (sendMessageToBabu):", error);
         throw error;
     }
 }
 
-// ─── Export 2: Generic Groq call (for Studio Tools) ───────────────────────────
-
-/**
- * Generic Groq call for structured tasks (quote generator, caption generator, budget estimator).
- * Always returns a plain text / JSON string.
- */
+// ─── Export 2: Generic Groq call (AI Tools) ───────────────────────────────────
 export async function callGroq(prompt: string): Promise<string> {
-    if (!prompt || !prompt.trim()) {
-        throw new Error("callGroq: prompt cannot be empty.");
-    }
+    if (!prompt?.trim()) throw new Error("callGroq: prompt cannot be empty.");
 
     try {
-        return await fetchGroq([
-            { role: "user", content: prompt.trim() }
-        ]);
+        return await fetchGroq([{ role: "user", content: prompt.trim() }]);
     } catch (error) {
         console.error("AI Error (callGroq):", error);
         throw error;
