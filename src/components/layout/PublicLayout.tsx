@@ -223,7 +223,7 @@ export const PublicLayout = () => {
                             <ul className="space-y-3 text-[var(--text-secondary)] text-sm">
                                 <li>Chandan Kumar Verma</li>
                                 <li>+91 8601343232</li>
-                                <li className="pt-2 italic">Lucknow, India</li>
+                                <li className="pt-2 italic">Ghazipur, India</li>
                             </ul>
                         </div>
                     </div>

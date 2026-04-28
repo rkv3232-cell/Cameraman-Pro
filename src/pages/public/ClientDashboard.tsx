@@ -146,7 +146,7 @@ export const ClientDashboard = () => {
                                     </div>
                                     <div>
                                         <p className="text-sm font-medium text-white">Contact Studio</p>
-                                        <p className="text-xs text-slate-500">+91 99999 88888</p>
+                                        <p className="text-xs text-slate-500">+91 8601343232</p>
                                     </div>
                                 </div>
                                 <p className="text-xs text-slate-500 leading-relaxed">
