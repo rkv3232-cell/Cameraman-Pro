@@ -29,33 +29,13 @@ export const Layout = () => {
 
     return (
         <div className="flex bg-[var(--bg-primary)] min-h-screen relative transition-colors duration-500 overflow-x-auto">
-            {/* Mobile Menu Button */}
-            <button
-                onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-                className="lg:hidden fixed top-4 left-4 z-[60] p-2 bg-[var(--surface-base)] border border-[var(--border-light)] rounded-lg shadow-lg text-[var(--text-primary)] active:scale-95 transition-transform"
-            >
-                <Menu size={20} />
-            </button>
-
-            {/* Sidebar - Collapsible on mobile, fixed width on desktop */}
-            <div className={`
-                fixed lg:sticky top-0 left-0 h-screen z-50 transition-all duration-300 ease-in-out border-r border-[var(--border-light)] bg-[var(--surface-base)]
-                ${isSidebarOpen ? 'translate-x-0 w-64' : '-translate-x-full w-64 lg:translate-x-0'}
-                flex-shrink-0
-            `}>
+            {/* Sidebar - Constant visibility, stays at the left of the scrollable area */}
+            <div className="sticky left-0 top-0 h-screen w-64 border-r border-[var(--border-light)] bg-[var(--surface-base)] z-50 flex-shrink-0">
                 <Sidebar />
             </div>
 
-            {/* Mobile Overlay */}
-            {isSidebarOpen && (
-                <div
-                    className="lg:hidden fixed inset-0 bg-black/60 z-40 backdrop-blur-sm animate-fade-in"
-                    onClick={() => setIsSidebarOpen(false)}
-                />
-            )}
-
-            {/* Main Content - No margin-left on mobile to use full width, sticky margin on desktop */}
-            <main className="flex-1 lg:ml-0 p-4 sm:p-6 lg:p-8 pt-16 lg:pt-8 pb-12 overflow-y-auto main-safe-area bg-[var(--bg-primary)] min-w-fit lg:min-w-0">
+            {/* Main Content - Scrolls horizontally beside the sidebar */}
+            <main className="flex-1 p-4 sm:p-6 lg:p-8 pt-8 overflow-y-auto main-safe-area bg-[var(--bg-primary)] min-w-[1200px]">
                 <div className="max-w-7xl mx-auto animate-fade-in">
                     <Outlet />
                 </div>
