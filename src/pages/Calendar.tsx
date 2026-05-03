@@ -92,9 +92,9 @@ export const Calendar = () => {
     const weeks = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
     return (
-        <div className="flex flex-col lg:flex-row gap-6 h-[calc(100vh-100px)]">
+        <div className="flex flex-nowrap gap-6 h-[calc(100vh-100px)] overflow-x-auto pb-4 custom-scrollbar">
             {/* ── Calendar Grid ──────────────────────────────────────── */}
-            <div className="flex-1 flex flex-col bg-[var(--surface-base)] rounded-xl border border-[var(--border-light)] overflow-hidden shadow-sm">
+            <div className="flex-1 min-w-[800px] flex flex-col bg-[var(--surface-base)] rounded-xl border border-[var(--border-light)] overflow-hidden shadow-sm">
 
                 {/* Header */}
                 <div className="p-4 flex items-center justify-between border-b border-[var(--border-light)]">
@@ -215,7 +215,7 @@ export const Calendar = () => {
             </div>
 
             {/* ── Side Panel ─────────────────────────────────────────── */}
-            <div className="w-full lg:w-80 bg-[var(--surface-base)] rounded-xl border border-[var(--border-light)] flex flex-col h-full shadow-sm">
+            <div className="w-80 min-w-[320px] flex-shrink-0 bg-[var(--surface-base)] rounded-xl border border-[var(--border-light)] flex flex-col h-full shadow-sm">
                 {/* Panel header */}
                 <div className="p-4 border-b border-[var(--border-light)] bg-[var(--bg-secondary)]">
                     <h3 className="text-lg font-semibold text-[var(--text-primary)]">

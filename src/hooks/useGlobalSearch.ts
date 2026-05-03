@@ -23,19 +23,26 @@ export function useGlobalSearch() {
 
         // Search Bookings
         bookings.forEach(b => {
+            const dateStr = b.eventDate?.toDate?.().toLocaleDateString('en-IN', {
+                day: '2-digit',
+                month: 'long',
+                year: 'numeric'
+            }).toLowerCase() || '';
+
             const match =
                 b.clientName?.toLowerCase().includes(q) ||
                 b.clientPhone?.includes(q) ||
                 b.eventType?.toLowerCase().includes(q) ||
                 b.venue?.toLowerCase().includes(q) ||
-                b.notes?.toLowerCase().includes(q);
+                b.notes?.toLowerCase().includes(q) ||
+                dateStr.includes(q);
 
             if (match) {
                 results.push({
                     id: b.id,
                     type: 'booking',
                     title: `${b.clientName} — ${b.eventType}`,
-                    subtitle: `${b.venue} • ${b.status}`,
+                    subtitle: `${b.venue} • ${b.status} • ${dateStr}`,
                     path: `/bookings/${b.id}`,
                     icon: '📋'
                 });
@@ -78,17 +85,24 @@ export function useGlobalSearch() {
 
         // Search Expenses
         expenses.forEach(e => {
+            const dateStr = e.date?.toDate?.().toLocaleDateString('en-IN', {
+                day: '2-digit',
+                month: 'long',
+                year: 'numeric'
+            }).toLowerCase() || '';
+
             const match =
                 e.notes?.toLowerCase().includes(q) ||
                 e.category?.toLowerCase().includes(q) ||
-                e.linkedBookingName?.toLowerCase().includes(q);
+                e.linkedBookingName?.toLowerCase().includes(q) ||
+                dateStr.includes(q);
 
             if (match) {
                 results.push({
                     id: e.id,
                     type: 'expense',
                     title: `${e.category.replace('_', ' ')} — ${formatMoney(e.amount / 100)}`,
-                    subtitle: e.notes || e.linkedBookingName || 'No notes',
+                    subtitle: `${dateStr} • ${e.notes || e.linkedBookingName || 'No notes'}`,
                     path: `/expenses`,
                     icon: '💸'
                 });

@@ -118,7 +118,7 @@ export default function CommandPalette() {
                                 <span>Type to search across your entire studio</span>
                             </div>
                             <div className="mt-3 flex flex-wrap gap-2 justify-center">
-                                {['Client name', 'Booking', 'Camera', 'Expense'].map(hint => (
+                                {['Client name', 'Booking', 'Camera', 'Expense', 'Date'].map(hint => (
                                     <button
                                         key={hint}
                                         onClick={() => setInputValue(hint.toLowerCase())}

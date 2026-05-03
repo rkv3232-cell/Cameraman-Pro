@@ -112,8 +112,8 @@ export const Bookings = () => {
                                 <tr>
                                     <th className="p-4 font-medium uppercase tracking-wider text-xs">Date</th>
                                     <th className="p-4 font-medium uppercase tracking-wider text-xs">Client</th>
-                                    <th className="p-4 font-medium hidden md:table-cell uppercase tracking-wider text-xs">Event</th>
-                                    <th className="p-4 font-medium hidden sm:table-cell uppercase tracking-wider text-xs">Amount</th>
+                                    <th className="p-4 font-medium uppercase tracking-wider text-xs">Event</th>
+                                    <th className="p-4 font-medium uppercase tracking-wider text-xs">Amount</th>
                                     <th className="p-4 font-medium uppercase tracking-wider text-xs">Status</th>
                                     <th className="p-4 font-medium text-right uppercase tracking-wider text-xs">Actions</th>
                                 </tr>
@@ -162,12 +162,12 @@ export const Bookings = () => {
                                                     Booked by {booking.createdByName || 'Unknown'}
                                                 </div>
                                             </td>
-                                            <td className="p-4 hidden md:table-cell">
+                                            <td className="p-4">
                                                 <span className="capitalize bg-[var(--bg-secondary)] px-2 py-1 rounded text-xs text-[var(--text-secondary)] border border-[var(--border-light)]">
                                                     {booking.eventType}
                                                 </span>
                                             </td>
-                                            <td className="p-4 hidden sm:table-cell">
+                                            <td className="p-4">
                                                 <div className="font-mono text-sm text-[var(--text-primary)] font-medium">{formatMoney(amount)}</div>
                                                 {due > 0 && (
                                                     <div className="text-xs text-red-500 font-medium">Due: {formatMoney(due)}</div>

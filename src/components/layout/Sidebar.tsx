@@ -48,7 +48,7 @@ export const Sidebar = () => {
     const currentPath = location.pathname;
 
     return (
-        <aside className="fixed left-0 top-0 h-screen w-64 bg-[var(--surface-base)] border-r border-[var(--border-light)] flex flex-col z-10 overflow-y-auto">
+        <aside className="sticky left-0 top-0 h-screen w-64 bg-[var(--surface-base)] border-r border-[var(--border-light)] flex flex-col z-50 overflow-y-auto flex-shrink-0">
             <div className="h-16 flex items-center px-4 border-b border-[var(--border-light)] flex-shrink-0">
                 <Logo size="md" />
             </div>

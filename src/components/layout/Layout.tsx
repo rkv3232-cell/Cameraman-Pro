@@ -28,54 +28,20 @@ export const Layout = () => {
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
     return (
-        <div className="flex bg-[var(--bg-primary)] min-h-screen relative transition-colors duration-500">
-            {/* Desktop Sidebar */}
-            <div className="hidden lg:block">
+        <div className="flex bg-[var(--bg-primary)] min-h-screen relative transition-colors duration-500 overflow-x-auto">
+            {/* Sidebar - Always visible as part of the layout structure */}
+            <div className="flex-shrink-0 w-64 border-r border-[var(--border-light)] z-50">
                 <Sidebar />
             </div>
 
-            {/* Mobile Header */}
-            <div className="lg:hidden fixed top-0 left-0 right-0 z-30 bg-[var(--surface-base)] border-b border-[var(--border-light)] px-4 py-3 flex items-center justify-between header-safe-area">
-                <button
-                    onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                    className="p-2 rounded-lg text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] transition-colors"
-                >
-                    <Menu size={22} />
-                </button>
-                <Logo size="sm" />
-                <button
-                    onClick={() => {
-                        // Dispatch Ctrl+K event to open command palette
-                        window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', ctrlKey: true }));
-                    }}
-                    className="p-2 rounded-lg text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] transition-colors"
-                >
-                    <Search size={20} />
-                </button>
-            </div>
-
-            {/* Mobile Sidebar Overlay */}
-            {mobileMenuOpen && (
-                <>
-                    <div
-                        className="lg:hidden fixed inset-0 bg-black/40 z-40 backdrop-blur-sm"
-                        onClick={() => setMobileMenuOpen(false)}
-                    />
-                    <div className="lg:hidden fixed left-0 top-0 h-full z-50 animate-slide-in-left">
-                        <Sidebar />
-                    </div>
-                </>
-            )}
-
-            {/* Main Content */}
-            <main className="flex-1 lg:ml-64 p-4 sm:p-6 lg:p-8 pt-16 lg:pt-8 pb-24 lg:pb-8 overflow-y-auto main-safe-area">
+            {/* Main Content - Constant margin-left to accommodate sidebar */}
+            <main className="flex-1 min-w-[1200px] p-4 sm:p-6 lg:p-8 pt-8 overflow-y-auto main-safe-area bg-[var(--bg-primary)]">
                 <div className="max-w-7xl mx-auto animate-fade-in">
                     <Outlet />
                 </div>
             </main>
 
-            {/* Mobile Bottom Navigation */}
-            <MobileNav />
+            {/* Removed Mobile Bottom Navigation to match PC view */}
 
             {/* Global Command Palette (Ctrl+K) */}
             <CommandPalette />
@@ -87,7 +53,7 @@ export const Layout = () => {
 
             {/* Floating Action Buttons */}
             <div className="fixed right-4 bottom-24 lg:bottom-6 lg:right-6 z-50 flex items-center gap-3">
-                <div className="hidden lg:block">
+                <div className="block">
                     <QuickActionBar />
                 </div>
                 <BabuWidget isOpen={isOpen} onToggle={toggle} />
