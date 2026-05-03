@@ -28,15 +28,26 @@ export const Layout = () => {
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
     return (
-        <div className="flex bg-[var(--bg-primary)] min-h-screen relative transition-colors duration-500 overflow-x-auto">
-            {/* Sidebar - Constant visibility, stays at the left of the scrollable area */}
-            <div className="sticky left-0 top-0 h-screen w-64 border-r border-[var(--border-light)] bg-[var(--surface-base)] z-50 flex-shrink-0">
+        <div className="flex bg-[var(--bg-primary)] min-h-screen relative overflow-x-auto">
+            {/* Mobile Menu Button */}
+            <button
+                onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+                className="lg:hidden fixed top-4 left-4 z-[60] p-2 bg-[var(--surface-base)] border border-[var(--border-light)] rounded-lg shadow-md text-[var(--text-primary)] hover:bg-[var(--surface-hover)]"
+            >
+                <Menu size={20} />
+            </button>
+
+            {/* Sidebar - Instant toggle (no sliding), sticky on left */}
+            <div className={`
+                ${isSidebarOpen ? 'block' : 'hidden lg:block'} 
+                sticky left-0 top-0 h-screen w-64 border-r border-[var(--border-light)] bg-[var(--surface-base)] z-50 flex-shrink-0
+            `}>
                 <Sidebar />
             </div>
 
-            {/* Main Content - Scrolls horizontally beside the sidebar */}
-            <main className="flex-1 p-4 sm:p-6 lg:p-8 pt-8 overflow-y-auto main-safe-area bg-[var(--bg-primary)] min-w-[1200px]">
-                <div className="max-w-7xl mx-auto animate-fade-in">
+            {/* Main Content - Horizontally scrollable */}
+            <main className="flex-1 p-4 sm:p-6 lg:p-8 pt-20 lg:pt-8 pb-12 overflow-y-auto main-safe-area bg-[var(--bg-primary)] min-w-[1200px]">
+                <div className="max-w-7xl mx-auto">
                     <Outlet />
                 </div>
             </main>
