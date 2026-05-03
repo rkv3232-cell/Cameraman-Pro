@@ -55,7 +55,7 @@ export const Layout = () => {
             )}
 
             {/* Main Content - No margin-left on mobile to use full width, sticky margin on desktop */}
-            <main className="flex-1 lg:ml-0 p-4 sm:p-6 lg:p-8 pt-16 lg:pt-8 overflow-y-auto main-safe-area bg-[var(--bg-primary)] min-w-[1000px] lg:min-w-0">
+            <main className="flex-1 lg:ml-0 p-4 sm:p-6 lg:p-8 pt-16 lg:pt-8 pb-12 overflow-y-auto main-safe-area bg-[var(--bg-primary)] min-w-fit lg:min-w-0">
                 <div className="max-w-7xl mx-auto animate-fade-in">
                     <Outlet />
                 </div>
