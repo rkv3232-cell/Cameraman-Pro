@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { useRef, useEffect } from 'react';
-import { Send, Bot, Sparkles, AlertCircle } from 'lucide-react';
+import { Send, Bot, Sparkles, AlertCircle, Mic, MicOff } from 'lucide-react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import VoiceIndicator from './VoiceIndicator';
@@ -21,12 +21,23 @@ interface BabuChatProps {
     isOpen: boolean;
     messages: Message[];
     isLoading: boolean;
+    isListening?: boolean;
     onSendMessage: (text: string) => void;
+    onStartVoice?: () => void;
     executeAction?: (action: BabuAction) => void;
     className?: string;
 }
 
-export function BabuChat({ isOpen, messages, isLoading, onSendMessage, executeAction, className }: BabuChatProps) {
+export function BabuChat({
+    isOpen,
+    messages,
+    isLoading,
+    isListening,
+    onSendMessage,
+    onStartVoice,
+    executeAction,
+    className
+}: BabuChatProps) {
     const [inputText, setInputText] = React.useState('');
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -275,27 +286,48 @@ export function BabuChat({ isOpen, messages, isLoading, onSendMessage, executeAc
 
             {/* Input Area */}
             <div className="p-4 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800 shrink-0">
-                <form onSubmit={handleSubmit} className="relative flex items-end gap-2">
-                    <textarea
-                        ref={inputRef}
-                        value={inputText}
-                        onChange={(e) => setInputText(e.target.value)}
-                        onKeyDown={handleKeyDown}
-                        placeholder="बाबू से पूछें... (e.g. आज की bookings दिखाओ)"
-                        className="w-full bg-gray-100 dark:bg-gray-800 border-0 rounded-xl p-3 pr-10 text-sm focus:ring-2 focus:ring-indigo-500 dark:text-white resize-none max-h-32 min-h-[44px]"
-                        rows={1}
-                        style={{ height: 'auto', minHeight: '44px' }}
-                    />
+                <div className="flex items-end gap-2">
                     <button
-                        type="submit"
-                        disabled={!inputText.trim() || isLoading}
-                        className="absolute right-2 bottom-2 p-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        type="button"
+                        onClick={onStartVoice}
+                        className={clsx(
+                            "p-3 rounded-xl transition-all duration-300 relative",
+                            isListening
+                                ? "bg-red-500 text-white animate-pulse shadow-[0_0_15px_rgba(239,68,68,0.5)]"
+                                : "bg-gray-100 dark:bg-gray-800 text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-700"
+                        )}
                     >
-                        <Send className="w-4 h-4" />
+                        {isListening ? <Mic className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
+                        {isListening && (
+                            <span className="absolute -top-1 -right-1 flex h-3 w-3">
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                                <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
+                            </span>
+                        )}
                     </button>
-                </form>
+
+                    <form onSubmit={handleSubmit} className="relative flex-1 flex items-end gap-2">
+                        <textarea
+                            ref={inputRef}
+                            value={inputText}
+                            onChange={(e) => setInputText(e.target.value)}
+                            onKeyDown={handleKeyDown}
+                            placeholder={isListening ? "BĀBU सुन रहा है..." : "बाबू से पूछें..."}
+                            className="w-full bg-gray-100 dark:bg-gray-800 border-0 rounded-xl p-3 pr-10 text-sm focus:ring-2 focus:ring-indigo-500 dark:text-white resize-none max-h-32 min-h-[44px]"
+                            rows={1}
+                            style={{ height: 'auto', minHeight: '44px' }}
+                        />
+                        <button
+                            type="submit"
+                            disabled={!inputText.trim() || isLoading}
+                            className="absolute right-2 bottom-2 p-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        >
+                            <Send className="w-4 h-4" />
+                        </button>
+                    </form>
+                </div>
                 <div className="text-center mt-2">
-                    <p className="text-[10px] text-gray-400">Context-Aware AI • Created by Raj Verma</p>
+                    <p className="text-[10px] text-gray-400">Deep Studio Intelligence • BĀBU v2.5</p>
                 </div>
             </div>
         </div>

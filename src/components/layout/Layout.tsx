@@ -20,7 +20,9 @@ export const Layout = () => {
         isLoading,
         executeAction,
         voiceActivated,
-        handleVoiceActivation
+        handleVoiceActivation,
+        isListening,
+        startVoiceCommand
     } = useBabu();
 
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -95,7 +97,9 @@ export const Layout = () => {
                 isOpen={isOpen}
                 messages={messages}
                 isLoading={isLoading}
+                isListening={isListening}
                 onSendMessage={sendMessage}
+                onStartVoice={startVoiceCommand}
                 executeAction={executeAction}
             />
         </div>

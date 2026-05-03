@@ -25,6 +25,7 @@ export const Expenses = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [categoryFilter, setCategoryFilter] = useState<ExpenseCategory | 'all'>('all');
+    const [dateFilter, setDateFilter] = useState("");
     const [form, setForm] = useState({
         amount: '',
         category: 'fuel' as ExpenseCategory,
@@ -71,11 +72,19 @@ export const Expenses = () => {
 
     const filteredExpenses = expenses.filter(e => {
         const matchesCategory = categoryFilter === 'all' || e.category === categoryFilter;
+        
+        const d = e.date?.toDate ? e.date.toDate() : new Date(e.date as any);
+        const formattedDate = format(d, 'MMM dd yyyy').toLowerCase();
+        
         const matchesSearch = !searchTerm ||
             e.notes?.toLowerCase().includes(searchTerm.toLowerCase()) ||
             e.linkedBookingName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            e.category.toLowerCase().includes(searchTerm.toLowerCase());
-        return matchesCategory && matchesSearch;
+            e.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            formattedDate.includes(searchTerm.toLowerCase());
+            
+        const matchesDate = !dateFilter || format(d, 'yyyy-MM-dd') === dateFilter;
+        
+        return matchesCategory && matchesSearch && matchesDate;
     });
 
     return (
@@ -178,15 +187,31 @@ export const Expenses = () => {
             </div>
 
             {/* Search & Filter */}
-            <div className="flex gap-4 items-center bg-[var(--surface-base)] p-4 rounded-xl border border-[var(--border-light)] shadow-sm overflow-x-auto">
+            <div className="flex flex-wrap gap-4 items-center bg-[var(--surface-base)] p-4 rounded-xl border border-[var(--border-light)] shadow-sm overflow-x-auto">
                 <div className="relative flex-1 min-w-[200px]">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)] h-4 w-4" />
                     <Input
-                        placeholder="Search expenses..."
+                        placeholder="Search notes, bookings, or date..."
                         className="pl-9 bg-[var(--bg-secondary)] border-[var(--border-light)]"
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                     />
+                </div>
+                <div className="flex items-center gap-2 bg-[var(--bg-secondary)] p-1 rounded-lg border border-[var(--border-light)]">
+                    <input
+                        type="date"
+                        className="bg-transparent border-none text-sm text-[var(--text-primary)] focus:outline-none p-1.5"
+                        value={dateFilter}
+                        onChange={(e) => setDateFilter(e.target.value)}
+                    />
+                    {dateFilter && (
+                        <button 
+                            onClick={() => setDateFilter("")}
+                            className="px-2 text-[var(--text-tertiary)] hover:text-[var(--text-primary)]"
+                        >
+                            ×
+                        </button>
+                    )}
                 </div>
                 <div className="flex bg-[var(--bg-secondary)] rounded-lg p-1 border border-[var(--border-light)]">
                     {(['all', 'fuel', 'assistant_payment', 'repair_maintenance', 'miscellaneous'] as const).map(cat => (

@@ -11,12 +11,16 @@ import {
     XCircle,
 } from 'lucide-react';
 import { Button } from '../components/ui/button';
+import { Input } from '../components/ui/input';
+import { Search } from 'lucide-react';
 import { sendWhatsAppMessage } from '../utils/whatsapp';
 import { BookingModal } from '../components/bookings/BookingModal';
 
 export const Enquiries = () => {
     const { enquiries, loading, updateEnquiryStatus } = useEnquiries();
     const [filter, setFilter] = useState<EnquiryStatus | 'all'>('all');
+    const [searchTerm, setSearchTerm] = useState("");
+    const [dateFilter, setDateFilter] = useState("");
 
     // Booking Conversion Modal State
     const [selectedEnquiry, setSelectedEnquiry] = useState<Enquiry | null>(null);
@@ -24,9 +28,24 @@ export const Enquiries = () => {
     const { addBooking } = useBookings();
 
     const aiLead = enquiries.find(enquiry => enquiry.source === 'AI_CHAT' && enquiry.status === 'new');
-    const filteredEnquiries = enquiries.filter(
-        enq => filter === 'all' || enq.status === filter
-    );
+    
+    const filteredEnquiries = enquiries.filter(enq => {
+        const matchesStatus = filter === 'all' || enq.status === filter;
+        
+        const enquiryDate = new Date(enq.date);
+        const formattedDate = format(enquiryDate, 'MMM dd yyyy').toLowerCase();
+        
+        const matchesSearch = !searchTerm ||
+            enq.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            enq.phone.includes(searchTerm) ||
+            enq.location.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            enq.eventType.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            formattedDate.includes(searchTerm.toLowerCase());
+            
+        const matchesDate = !dateFilter || format(enquiryDate, 'yyyy-MM-dd') === dateFilter;
+        
+        return matchesStatus && matchesSearch && matchesDate;
+    });
 
     const scrollToLead = (id: string) => {
         if (typeof document === 'undefined') return;
@@ -109,6 +128,36 @@ export const Enquiries = () => {
                     ))}
                 </div>
             </header>
+
+            {/* Search & Date Filter */}
+            <div className="flex flex-wrap gap-4 items-center bg-[var(--surface-base)] p-4 rounded-xl border border-[var(--border-light)] shadow-sm overflow-x-auto">
+                <div className="relative flex-1 min-w-[200px]">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)] h-4 w-4" />
+                    <Input
+                        placeholder="Search name, phone, location, or date..."
+                        className="pl-9 bg-[var(--bg-secondary)] border-[var(--border-light)]"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                    />
+                </div>
+                <div className="flex items-center gap-2 bg-[var(--bg-secondary)] p-1 rounded-lg border border-[var(--border-light)]">
+                    <Calendar className="ml-2 h-4 w-4 text-[var(--text-tertiary)]" />
+                    <input
+                        type="date"
+                        className="bg-transparent border-none text-sm text-[var(--text-primary)] focus:outline-none p-1.5"
+                        value={dateFilter}
+                        onChange={(e) => setDateFilter(e.target.value)}
+                    />
+                    {dateFilter && (
+                        <button 
+                            onClick={() => setDateFilter("")}
+                            className="px-2 text-[var(--text-tertiary)] hover:text-[var(--text-primary)]"
+                        >
+                            ×
+                        </button>
+                    )}
+                </div>
+            </div>
 
             {aiLead && (
                 <div className="rounded-2xl border border-emerald-500/40 bg-emerald-500/5 p-4 text-sm text-[var(--text-primary)] shadow-lg shadow-emerald-500/10">

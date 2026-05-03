@@ -16,6 +16,7 @@ export const Bookings = () => {
     const navigate = useNavigate();
     const { bookings, loading, addBooking, updateBooking, softDeleteBooking } = useBookings();
     const [searchTerm, setSearchTerm] = useState("");
+    const [dateFilter, setDateFilter] = useState("");
     const [isFormOpen, setIsFormOpen] = useState(false);
     const [editingBooking, setEditingBooking] = useState<Booking | undefined>(undefined);
 
@@ -24,11 +25,19 @@ export const Bookings = () => {
     const [isDeleteLoading, setIsDeleteLoading] = useState(false);
 
     // Filter Logic
-    const filteredBookings = bookings.filter(b =>
-        b.clientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        b.clientPhone.includes(searchTerm) ||
-        b.venue.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    const filteredBookings = bookings.filter(b => {
+        const date = b.eventDate.toDate();
+        const formattedDate = format(date, 'MMM dd yyyy').toLowerCase();
+        const matchesSearch =
+            b.clientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            b.clientPhone.includes(searchTerm) ||
+            b.venue.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            formattedDate.includes(searchTerm.toLowerCase());
+
+        const matchesDate = !dateFilter || format(date, 'yyyy-MM-dd') === dateFilter;
+
+        return matchesSearch && matchesDate;
+    });
 
     const handleEdit = (booking: Booking) => {
         setEditingBooking(booking);
@@ -64,19 +73,33 @@ export const Bookings = () => {
                 </Button>
             </div>
 
-            <div className="flex gap-4 items-center bg-[var(--surface-base)] p-4 rounded-xl border border-[var(--border-light)] shadow-sm">
-                <div className="relative flex-1">
+            <div className="flex flex-wrap gap-4 items-center bg-[var(--surface-base)] p-4 rounded-xl border border-[var(--border-light)] shadow-sm">
+                <div className="relative flex-1 min-w-[200px]">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)] h-4 w-4" />
                     <Input
-                        placeholder="Search clients, phone, or venue..."
+                        placeholder="Search clients, phone, venue, or date..."
                         className="pl-9 bg-[var(--bg-secondary)] border-[var(--border-light)] text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)]"
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                     />
                 </div>
-                <Button variant="secondary" className="hidden sm:flex">
-                    <Filter className="mr-2 h-4 w-4" /> Filter
-                </Button>
+                <div className="flex items-center gap-2 bg-[var(--bg-secondary)] p-1 rounded-lg border border-[var(--border-light)]">
+                    <CalendarIcon className="ml-2 h-4 w-4 text-[var(--text-tertiary)]" />
+                    <input
+                        type="date"
+                        className="bg-transparent border-none text-sm text-[var(--text-primary)] focus:outline-none p-1.5"
+                        value={dateFilter}
+                        onChange={(e) => setDateFilter(e.target.value)}
+                    />
+                    {dateFilter && (
+                        <button 
+                            onClick={() => setDateFilter("")}
+                            className="px-2 text-[var(--text-tertiary)] hover:text-[var(--text-primary)]"
+                        >
+                            ×
+                        </button>
+                    )}
+                </div>
             </div>
 
             <div className="bg-[var(--surface-base)] rounded-xl border border-[var(--border-light)] overflow-hidden shadow-sm">

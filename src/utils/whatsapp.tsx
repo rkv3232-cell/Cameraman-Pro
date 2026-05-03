@@ -14,16 +14,19 @@ interface MessageSubEvent {
 }
 
 /**
- * Sends a WhatsApp message by opening the wa.me link in a new tab.
- * @param phone Client phone number (can include or exclude country code)
+ * Sends a WhatsApp message via standard wa.me link.
+ * Note: Browser security requires user to manually click "Send".
+ * @param phone Client phone number
  * @param message The text message to send
  */
 export const sendWhatsAppMessage = (phone: string, message: string) => {
-    // Remove non-digits and ensure +91 for India
+    // Remove non-digits and ensure 91 for India
     const cleanPhone = phone.replace(/\D/g, '');
-    // Default to 91 if length is 10, otherwise assume full number
     const formattedPhone = cleanPhone.length === 10 ? `91${cleanPhone}` : cleanPhone;
 
+    console.log(`[BĀBU] Opening WhatsApp for ${formattedPhone}`);
+
+    // Fallback to Manual Link (Clean & Independent)
     const encodedMessage = encodeURIComponent(message);
     window.open(`https://wa.me/${formattedPhone}?text=${encodedMessage}`, '_blank');
 };
