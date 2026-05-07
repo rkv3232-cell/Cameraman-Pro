@@ -1,4 +1,4 @@
-﻿import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Outlet } from "react-router-dom";
 import { Sidebar } from "./Sidebar";
 import { BabuChat, BabuWidget } from "../ai";
@@ -6,10 +6,9 @@ import VoiceActivationButton from "../ai/VoiceActivationButton";
 import { useBabu } from "../../hooks/useBabu";
 import CommandPalette from "../ui/CommandPalette";
 import QuickActionBar from "../ui/QuickActionBar";
+import { useNotifications } from "../../hooks/useNotifications";
 
 import { Menu } from "lucide-react";
-
-
 
 export const Layout = () => {
     const {
@@ -26,6 +25,19 @@ export const Layout = () => {
     } = useBabu();
 
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+    const { permission, requestPermission } = useNotifications();
+
+    // Show a prompt for notification permission if not yet decided
+    useEffect(() => {
+        if (permission === 'default') {
+            const timer = setTimeout(() => {
+                if (window.confirm("Allow Cameraman Pro notifications to receive booking reminders?")) {
+                    requestPermission();
+                }
+            }, 3000); // Wait 3 seconds before asking
+            return () => clearTimeout(timer);
+        }
+    }, [permission, requestPermission]);
 
     return (
         <div className="flex bg-[var(--bg-primary)] min-h-screen relative overflow-x-hidden w-full max-w-full">

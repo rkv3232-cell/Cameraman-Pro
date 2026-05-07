@@ -6,6 +6,7 @@ import { doc, updateDoc } from "firebase/firestore";
 import { db } from "../lib/firebase";
 import toast from "react-hot-toast";
 import { User, LogOut, Save, Copy, Users } from "lucide-react";
+import { NotificationSettings } from "../components/settings/NotificationSettings";
 
 export const Settings = () => {
     const { userProfile, studioId, logout, user, joinTeam } = useAuth();
@@ -140,6 +141,9 @@ export const Settings = () => {
                     </form>
                 </div>
             </div>
+
+            {/* Notification Settings Section */}
+            <NotificationSettings studioId={studioId} user={user} />
 
             {/* Team Collaboration Section */}
             <div className="bg-[var(--surface-base)] rounded-xl border border-[var(--border-light)] overflow-hidden shadow-sm">
