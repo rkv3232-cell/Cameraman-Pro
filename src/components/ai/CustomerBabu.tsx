@@ -1,4 +1,4 @@
-import { useContext, useEffect, useMemo, useState, useCallback } from "react";
+ï»¿import { useContext, useEffect, useMemo, useState, useCallback } from "react";
 import { Send, MessageCircle, X } from "lucide-react";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 import toast from "react-hot-toast";
@@ -64,7 +64,7 @@ export function CustomerBabu() {
     const highlightMessage = useMemo(() => {
         const highlights = text.aiCustomer?.serviceHighlights?.[lang] ?? [];
         if (!highlights.length) return "";
-        return highlights.map((item: string) => `• ${item}`).join("\n");
+        return highlights.map((item: string) => `ï¿½ ${item}`).join("\n");
     }, [lang]);
 
     const resetConversation = useCallback(() => {
@@ -197,7 +197,7 @@ export function CustomerBabu() {
         <div>
             <button
                 onClick={() => setIsOpen((prev) => !prev)}
-                className="fixed bottom-6 right-6 z-50 flex items-center gap-2 rounded-full border border-white/30 bg-gradient-to-r from-indigo-600 to-purple-600 px-4 py-2 text-sm font-semibold text-white shadow-xl shadow-indigo-900/50 hover:shadow-purple-900/60"
+                className="fixed bottom-24 md:bottom-6 right-4 md:right-6 z-50 flex items-center gap-2 rounded-full border border-white/30 bg-gradient-to-r from-indigo-600 to-purple-600 px-4 py-2 text-sm font-semibold text-white shadow-xl shadow-indigo-900/50 hover:shadow-purple-900/60"
                 aria-label={isOpen ? "Close AI chat" : "Open AI chat"}
             >
                 <MessageCircle className="w-5 h-5" />
@@ -205,7 +205,7 @@ export function CustomerBabu() {
             </button>
 
             {isOpen && (
-                <div className="fixed bottom-24 right-6 z-50 w-[320px] max-w-[calc(100vw-1.5rem)] rounded-2xl bg-gray-900 text-white shadow-2xl shadow-black/50 border border-white/10">
+                <div className="fixed bottom-[136px] md:bottom-24 right-4 md:right-6 z-50 w-[320px] max-w-[calc(100vw-1.5rem)] rounded-2xl bg-gray-900 text-white shadow-2xl shadow-black/50 border border-white/10">
                     <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
                         <div>
                             <p className="text-sm uppercase tracking-wider text-indigo-300">AI BABU</p>
@@ -319,11 +319,11 @@ export function CustomerBabu() {
                             <div className="space-y-2">
                                 <div className="rounded-2xl bg-gray-800 px-3 py-2 text-xs text-white/80">
                                     <p className="font-semibold text-white">Summary</p>
-                                    <p>Event: {answers.eventType || "—"}</p>
-                                    <p>Date: {answers.date || "—"}</p>
-                                    <p>Location: {answers.location || "—"}</p>
-                                    <p>Name: {answers.name || "—"}</p>
-                                    <p>Phone: {answers.phone || "—"}</p>
+                                    <p>Event: {answers.eventType || "ï¿½"}</p>
+                                    <p>Date: {answers.date || "ï¿½"}</p>
+                                    <p>Location: {answers.location || "ï¿½"}</p>
+                                    <p>Name: {answers.name || "ï¿½"}</p>
+                                    <p>Phone: {answers.phone || "ï¿½"}</p>
                                 </div>
                                 <button
                                     onClick={handleEnquirySubmit}

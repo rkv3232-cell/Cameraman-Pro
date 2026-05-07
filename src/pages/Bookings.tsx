@@ -1,11 +1,11 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useBookings } from "../hooks/useBookings";
 import { BookingModal } from "../components/bookings/BookingModal";
 import { DeleteModal } from "../components/bookings/DeleteModal";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
-import { Plus, Search, Filter, Calendar as CalendarIcon, Phone, MapPin } from "lucide-react";
+import { Plus, Search, Calendar as CalendarIcon, Phone, MapPin } from "lucide-react";
 import { BookingActions } from "../components/bookings/BookingActions";
 import { Booking } from "../types";
 import { format } from "date-fns";
@@ -106,94 +106,165 @@ export const Bookings = () => {
                 {loading ? (
                     <div className="p-12 text-center text-[var(--text-secondary)]">Loading bookings...</div>
                 ) : filteredBookings.length > 0 ? (
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-left border-collapse">
-                            <thead className="bg-[var(--bg-secondary)] text-[var(--text-secondary)] text-sm">
-                                <tr>
-                                    <th className="p-4 font-medium uppercase tracking-wider text-xs">Date</th>
-                                    <th className="p-4 font-medium uppercase tracking-wider text-xs">Client</th>
-                                    <th className="p-4 font-medium uppercase tracking-wider text-xs">Event</th>
-                                    <th className="p-4 font-medium uppercase tracking-wider text-xs">Amount</th>
-                                    <th className="p-4 font-medium uppercase tracking-wider text-xs">Status</th>
-                                    <th className="p-4 font-medium text-right uppercase tracking-wider text-xs">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-[var(--border-light)]">
-                                {filteredBookings.map((booking) => {
-                                    // Financial calc
-                                    const amount = booking.financials?.totalAmount ? booking.financials.totalAmount / 100 : 0;
-                                    const advance = booking.financials?.advancePaid ? booking.financials.advancePaid / 100 : 0;
-                                    const due = amount - advance;
+                    <>
+                        <div className="hidden md:block overflow-x-auto">
+                            <table className="w-full text-left border-collapse">
+                                <thead className="bg-[var(--bg-secondary)] text-[var(--text-secondary)] text-sm">
+                                    <tr>
+                                        <th className="p-4 font-medium uppercase tracking-wider text-xs">Date</th>
+                                        <th className="p-4 font-medium uppercase tracking-wider text-xs">Client</th>
+                                        <th className="p-4 font-medium uppercase tracking-wider text-xs">Event</th>
+                                        <th className="p-4 font-medium uppercase tracking-wider text-xs">Amount</th>
+                                        <th className="p-4 font-medium uppercase tracking-wider text-xs">Status</th>
+                                        <th className="p-4 font-medium text-right uppercase tracking-wider text-xs">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-[var(--border-light)]">
+                                    {filteredBookings.map((booking) => {
+                                        // Financial calc
+                                        const amount = booking.financials?.totalAmount ? booking.financials.totalAmount / 100 : 0;
+                                        const advance = booking.financials?.advancePaid ? booking.financials.advancePaid / 100 : 0;
+                                        const due = amount - advance;
 
-                                    return (
-                                        <tr
-                                            key={booking.id}
-                                            onClick={() => navigate(`/bookings/${booking.id}`)}
-                                            className="hover:bg-[var(--surface-hover)] transition-colors cursor-pointer group"
-                                        >
-                                            <td className="p-4 text-[var(--text-primary)]">
-                                                <div className="flex items-center gap-2 font-medium">
-                                                    <CalendarIcon className="h-4 w-4 text-[var(--text-tertiary)]" />
-                                                    {format(booking.eventDate.toDate(), 'MMM dd')}
-                                                </div>
-                                                <div className="text-xs text-[var(--text-secondary)] pl-6">
-                                                    {format(booking.eventDate.toDate(), 'h:mm a')}
-                                                </div>
-                                            </td>
-                                            <td className="p-4">
-                                                <div className="font-medium text-[var(--text-primary)]">{booking.clientName}</div>
-                                                <div className="flex items-center gap-2 mt-0.5">
-                                                    <a
-                                                        href={`tel:+91${booking.clientPhone}`}
-                                                        className="flex items-center text-xs text-[var(--text-secondary)] hover:text-[var(--accent-primary)] hover:underline transition-colors"
-                                                        onClick={(e) => e.stopPropagation()}
-                                                    >
-                                                        <Phone size={10} className="mr-1" />
-                                                        {booking.clientPhone}
-                                                    </a>
-                                                </div>
-                                                {booking.venue && (
-                                                    <div className="flex items-center text-xs text-[var(--text-tertiary)] mt-0.5">
-                                                        <MapPin size={10} className="mr-1" />
-                                                        <span className="truncate max-w-[150px]">{booking.venue}</span>
+                                        return (
+                                            <tr
+                                                key={booking.id}
+                                                onClick={() => navigate(`/bookings/${booking.id}`)}
+                                                className="hover:bg-[var(--surface-hover)] transition-colors cursor-pointer group"
+                                            >
+                                                <td className="p-4 text-[var(--text-primary)]">
+                                                    <div className="flex items-center gap-2 font-medium">
+                                                        <CalendarIcon className="h-4 w-4 text-[var(--text-tertiary)]" />
+                                                        {format(booking.eventDate.toDate(), 'MMM dd')}
                                                     </div>
-                                                )}
-                                                <div className="text-[10px] text-[var(--text-disabled)] mt-1">
-                                                    Booked by {booking.createdByName || 'Unknown'}
+                                                    <div className="text-xs text-[var(--text-secondary)] pl-6">
+                                                        {format(booking.eventDate.toDate(), 'h:mm a')}
+                                                    </div>
+                                                </td>
+                                                <td className="p-4">
+                                                    <div className="font-medium text-[var(--text-primary)]">{booking.clientName}</div>
+                                                    <div className="flex items-center gap-2 mt-0.5">
+                                                        <a
+                                                            href={`tel:+91${booking.clientPhone}`}
+                                                            className="flex items-center text-xs text-[var(--text-secondary)] hover:text-[var(--accent-primary)] hover:underline transition-colors"
+                                                            onClick={(e) => e.stopPropagation()}
+                                                        >
+                                                            <Phone size={10} className="mr-1" />
+                                                            {booking.clientPhone}
+                                                        </a>
+                                                    </div>
+                                                    {booking.venue && (
+                                                        <div className="flex items-center text-xs text-[var(--text-tertiary)] mt-0.5">
+                                                            <MapPin size={10} className="mr-1" />
+                                                            <span className="truncate max-w-[150px]">{booking.venue}</span>
+                                                        </div>
+                                                    )}
+                                                    <div className="text-[10px] text-[var(--text-disabled)] mt-1">
+                                                        Booked by {booking.createdByName || 'Unknown'}
+                                                    </div>
+                                                </td>
+                                                <td className="p-4">
+                                                    <span className="capitalize bg-[var(--bg-secondary)] px-2 py-1 rounded text-xs text-[var(--text-secondary)] border border-[var(--border-light)]">
+                                                        {booking.eventType}
+                                                    </span>
+                                                </td>
+                                                <td className="p-4">
+                                                    <div className="font-mono text-sm text-[var(--text-primary)] font-medium">{formatMoney(amount)}</div>
+                                                    {due > 0 && (
+                                                        <div className="text-xs text-red-500 font-medium">Due: {formatMoney(due)}</div>
+                                                    )}
+                                                </td>
+                                                <td className="p-4">
+                                                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold capitalize border
+                                                        ${booking.status === 'confirmed' ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20' :
+                                                            booking.status === 'pending' ? 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-orange-500/10 dark:text-orange-400 dark:border-orange-500/20' :
+                                                                'bg-[var(--bg-secondary)] text-[var(--text-tertiary)] border-[var(--border-light)]'}`}>
+                                                        {booking.status}
+                                                    </span>
+                                                </td>
+                                                <td className="p-4 text-right">
+                                                    <BookingActions
+                                                        booking={booking}
+                                                        onEdit={handleEdit}
+                                                        onDelete={() => setBookingToDelete(booking)}
+                                                    />
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        {/* Mobile Card View */}
+                        <div className="grid grid-cols-1 gap-4 p-4 md:hidden">
+                            {filteredBookings.map((booking) => {
+                                const amount = booking.financials?.totalAmount ? booking.financials.totalAmount / 100 : 0;
+                                const advance = booking.financials?.advancePaid ? booking.financials.advancePaid / 100 : 0;
+                                const due = amount - advance;
+
+                                return (
+                                    <div
+                                        key={booking.id}
+                                        onClick={() => navigate(`/bookings/${booking.id}`)}
+                                        className="bg-[var(--bg-secondary)] p-4 rounded-xl border border-[var(--border-light)] shadow-sm hover:border-[var(--accent-primary)]/50 transition-colors cursor-pointer"
+                                    >
+                                        <div className="flex justify-between items-start mb-2">
+                                            <div>
+                                                <div className="font-bold text-[var(--text-primary)]">{booking.clientName}</div>
+                                                <div className="text-xs text-[var(--text-secondary)] mt-0.5 flex items-center gap-1">
+                                                    <CalendarIcon className="w-3 h-3" />
+                                                    {format(booking.eventDate.toDate(), 'MMM dd, yyyy')} at {format(booking.eventDate.toDate(), 'h:mm a')}
                                                 </div>
-                                            </td>
-                                            <td className="p-4">
-                                                <span className="capitalize bg-[var(--bg-secondary)] px-2 py-1 rounded text-xs text-[var(--text-secondary)] border border-[var(--border-light)]">
-                                                    {booking.eventType}
-                                                </span>
-                                            </td>
-                                            <td className="p-4">
-                                                <div className="font-mono text-sm text-[var(--text-primary)] font-medium">{formatMoney(amount)}</div>
-                                                {due > 0 && (
-                                                    <div className="text-xs text-red-500 font-medium">Due: {formatMoney(due)}</div>
-                                                )}
-                                            </td>
-                                            <td className="p-4">
-                                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold capitalize border
-                                                    ${booking.status === 'confirmed' ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20' :
-                                                        booking.status === 'pending' ? 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-orange-500/10 dark:text-orange-400 dark:border-orange-500/20' :
-                                                            'bg-[var(--bg-secondary)] text-[var(--text-tertiary)] border-[var(--border-light)]'}`}>
-                                                    {booking.status}
-                                                </span>
-                                            </td>
-                                            <td className="p-4 text-right">
+                                            </div>
+                                            <div onClick={(e) => e.stopPropagation()}>
                                                 <BookingActions
                                                     booking={booking}
                                                     onEdit={handleEdit}
                                                     onDelete={() => setBookingToDelete(booking)}
                                                 />
-                                            </td>
-                                        </tr>
-                                    );
-                                })}
-                            </tbody>
-                        </table>
-                    </div>
+                                            </div>
+                                        </div>
+                                        <div className="flex flex-wrap gap-2 mb-3">
+                                            <span className="capitalize bg-[var(--surface-base)] px-2 py-1 rounded text-xs text-[var(--text-secondary)] border border-[var(--border-light)]">
+                                                {booking.eventType}
+                                            </span>
+                                            <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-bold capitalize border
+                                                ${booking.status === 'confirmed' ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20' :
+                                                    booking.status === 'pending' ? 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-orange-500/10 dark:text-orange-400 dark:border-orange-500/20' :
+                                                        'bg-[var(--bg-secondary)] text-[var(--text-tertiary)] border-[var(--border-light)]'}`}>
+                                                {booking.status}
+                                            </span>
+                                        </div>
+                                        <div className="flex justify-between items-end">
+                                            <div className="space-y-1">
+                                                <a
+                                                    href={`tel:+91${booking.clientPhone}`}
+                                                    className="flex items-center text-xs text-[var(--text-secondary)] hover:text-[var(--accent-primary)] hover:underline transition-colors w-fit"
+                                                    onClick={(e) => e.stopPropagation()}
+                                                >
+                                                    <Phone size={10} className="mr-1" />
+                                                    {booking.clientPhone}
+                                                </a>
+                                                {booking.venue && (
+                                                    <div className="flex items-center text-xs text-[var(--text-tertiary)]">
+                                                        <MapPin size={10} className="mr-1" />
+                                                        <span className="truncate max-w-[150px]">{booking.venue}</span>
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <div className="text-right">
+                                                <div className="font-mono text-sm text-[var(--text-primary)] font-medium">{formatMoney(amount)}</div>
+                                                {due > 0 && (
+                                                    <div className="text-xs text-red-500 font-medium">Due: {formatMoney(due)}</div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </>
                 ) : (
                     <div className="p-12 text-center">
                         <div className="inline-block p-4 rounded-full bg-[var(--accent-primary)]/10 text-[var(--accent-primary)] mb-4">

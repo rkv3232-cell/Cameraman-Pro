@@ -1,4 +1,4 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { Outlet } from "react-router-dom";
 import { Sidebar } from "./Sidebar";
 import { BabuChat, BabuWidget } from "../ai";
@@ -6,9 +6,9 @@ import VoiceActivationButton from "../ai/VoiceActivationButton";
 import { useBabu } from "../../hooks/useBabu";
 import CommandPalette from "../ui/CommandPalette";
 import QuickActionBar from "../ui/QuickActionBar";
-import MobileNav from "../mobile/MobileNav";
-import { Menu, Search } from "lucide-react";
-import { Logo } from "./Logo";
+
+import { Menu } from "lucide-react";
+
 
 
 export const Layout = () => {
@@ -28,7 +28,7 @@ export const Layout = () => {
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
     return (
-        <div className="flex bg-[var(--bg-primary)] min-h-screen relative overflow-x-auto">
+        <div className="flex bg-[var(--bg-primary)] min-h-screen relative overflow-x-hidden w-full max-w-full">
             {/* Mobile Menu Button */}
             <button
                 onClick={() => setIsSidebarOpen(!isSidebarOpen)}
@@ -37,17 +37,25 @@ export const Layout = () => {
                 <Menu size={20} />
             </button>
 
-            {/* Sidebar - Instant toggle (no sliding), sticky on left */}
+            {/* Mobile Sidebar Overlay */}
+            {isSidebarOpen && (
+                <div 
+                    className="fixed inset-0 bg-black/50 z-[45] lg:hidden"
+                    onClick={() => setIsSidebarOpen(false)}
+                />
+            )}
+
+            {/* Sidebar */}
             <div className={`
-                ${isSidebarOpen ? 'block' : 'hidden lg:block'} 
-                sticky left-0 top-0 h-screen w-64 border-r border-[var(--border-light)] bg-[var(--surface-base)] z-50 flex-shrink-0
+                ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'} 
+                fixed lg:sticky left-0 top-0 h-screen w-64 border-r border-[var(--border-light)] bg-[var(--surface-base)] z-50 flex-shrink-0 transition-transform duration-200 ease-in-out
             `}>
-                <Sidebar />
+                <Sidebar onCloseMobile={() => setIsSidebarOpen(false)} />
             </div>
 
-            {/* Main Content - Horizontally scrollable */}
-            <main className="flex-1 p-4 sm:p-6 lg:p-8 pt-20 lg:pt-8 pb-12 overflow-y-auto main-safe-area bg-[var(--bg-primary)] min-w-[1200px]">
-                <div className="max-w-7xl mx-auto">
+            {/* Main Content */}
+            <main className="flex-1 w-full min-w-0 max-w-full p-4 sm:p-6 lg:p-8 pt-20 lg:pt-8 pb-24 lg:pb-12 overflow-y-auto main-safe-area bg-[var(--bg-primary)]">
+                <div className="max-w-7xl mx-auto w-full min-w-0">
                     <Outlet />
                 </div>
             </main>

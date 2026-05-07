@@ -1,6 +1,6 @@
-import * as React from 'react';
+﻿import * as React from 'react';
 import { useRef, useEffect } from 'react';
-import { Send, Bot, Sparkles, AlertCircle, Mic, MicOff } from 'lucide-react';
+import { Send, Bot, Sparkles, AlertCircle, Mic,  } from 'lucide-react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import VoiceIndicator from './VoiceIndicator';

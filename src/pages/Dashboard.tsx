@@ -291,57 +291,94 @@ export const Dashboard = () => {
                 <h2 className="text-xl font-bold text-[var(--text-primary)] mb-4">Upcoming Schedule</h2>
                 <div className="bg-[var(--surface-base)] rounded-xl border border-[var(--border-light)] overflow-hidden shadow-sm">
                     {upcomingEvents.length > 0 ? (
-                        <table className="w-full text-left">
-                            <thead className="bg-[var(--bg-secondary)] text-[var(--text-secondary)] text-sm">
-                                <tr>
-                                    <th className="p-4 font-medium">Event</th>
-                                    <th className="p-4 font-medium">Client</th>
-                                    <th className="p-4 font-medium">Date</th>
-                                    <th className="p-4 font-medium">Financials</th>
-                                    <th className="p-4 font-medium">Status</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-[var(--border-light)]">
+                        <>
+                            <div className="hidden md:block overflow-x-auto">
+                                <table className="w-full text-left">
+                                    <thead className="bg-[var(--bg-secondary)] text-[var(--text-secondary)] text-sm">
+                                        <tr>
+                                            <th className="p-4 font-medium">Event</th>
+                                            <th className="p-4 font-medium">Client</th>
+                                            <th className="p-4 font-medium">Date</th>
+                                            <th className="p-4 font-medium">Financials</th>
+                                            <th className="p-4 font-medium">Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-[var(--border-light)]">
+                                        {upcomingEvents.map((booking) => {
+                                            const total = booking.financials?.totalAmount / 100 || 0;
+                                            const advance = booking.financials?.advancePaid / 100 || 0;
+                                            const due = total - advance;
+
+                                            return (
+                                                <tr key={booking.id} className="hover:bg-[var(--surface-hover)] transition-colors">
+                                                    <td className="p-4 text-[var(--text-primary)] font-medium capitalize flex items-center gap-2">
+                                                        {booking.eventType}
+                                                    </td>
+                                                    <td className="p-4">
+                                                        <div className="text-[var(--text-primary)]">{booking.clientName}</div>
+                                                        <div className="text-xs text-[var(--text-tertiary)]">{booking.clientPhone}</div>
+                                                    </td>
+                                                    <td className="p-4 text-[var(--text-secondary)]">
+                                                        {format(booking.eventDate.toDate(), 'MMM dd, yyyy')}
+                                                        <div className="text-xs opacity-60">
+                                                            {format(booking.eventDate.toDate(), 'h:mm a')}
+                                                        </div>
+                                                    </td>
+                                                    <td className="p-4">
+                                                        <div className="text-sm text-[var(--text-primary)]">{formatMoney(total)}</div>
+                                                        {due > 0 && (
+                                                            <div className="text-xs text-[var(--error)] font-medium">
+                                                                Due: {formatMoney(due)}
+                                                            </div>
+                                                        )}
+                                                    </td>
+                                                    <td className="p-4">
+                                                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium capitalize
+                                                            ${booking.status === 'confirmed' ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-500' :
+                                                                booking.status === 'pending' ? 'bg-orange-50 text-orange-700 dark:bg-orange-500/10 dark:text-orange-500' : 'bg-[var(--bg-secondary)] text-[var(--text-tertiary)]'}`}>
+                                                            {booking.status}
+                                                        </span>
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div className="grid grid-cols-1 gap-4 p-4 md:hidden">
                                 {upcomingEvents.map((booking) => {
                                     const total = booking.financials?.totalAmount / 100 || 0;
                                     const advance = booking.financials?.advancePaid / 100 || 0;
                                     const due = total - advance;
 
                                     return (
-                                        <tr key={booking.id} className="hover:bg-[var(--surface-hover)] transition-colors">
-                                            <td className="p-4 text-[var(--text-primary)] font-medium capitalize flex items-center gap-2">
-                                                {booking.eventType}
-                                            </td>
-                                            <td className="p-4">
-                                                <div className="text-[var(--text-primary)]">{booking.clientName}</div>
-                                                <div className="text-xs text-[var(--text-tertiary)]">{booking.clientPhone}</div>
-                                            </td>
-                                            <td className="p-4 text-[var(--text-secondary)]">
-                                                {format(booking.eventDate.toDate(), 'MMM dd, yyyy')}
-                                                <div className="text-xs opacity-60">
-                                                    {format(booking.eventDate.toDate(), 'h:mm a')}
+                                        <div key={booking.id} className="bg-[var(--bg-secondary)] p-4 rounded-xl border border-[var(--border-light)] hover:border-[var(--accent-primary)]/50 transition-colors">
+                                            <div className="flex justify-between items-start mb-2">
+                                                <div>
+                                                    <div className="font-bold text-[var(--text-primary)]">{booking.clientName}</div>
+                                                    <div className="text-xs text-[var(--text-secondary)] mt-0.5">{format(booking.eventDate.toDate(), 'MMM dd, yyyy')} • {format(booking.eventDate.toDate(), 'h:mm a')}</div>
                                                 </div>
-                                            </td>
-                                            <td className="p-4">
-                                                <div className="text-sm text-[var(--text-primary)]">{formatMoney(total)}</div>
-                                                {due > 0 && (
-                                                    <div className="text-xs text-[var(--error)] font-medium">
-                                                        Due: {formatMoney(due)}
-                                                    </div>
-                                                )}
-                                            </td>
-                                            <td className="p-4">
-                                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium capitalize
-                                                    ${booking.status === 'confirmed' ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-500' :
-                                                        booking.status === 'pending' ? 'bg-orange-50 text-orange-700 dark:bg-orange-500/10 dark:text-orange-500' : 'bg-[var(--bg-secondary)] text-[var(--text-tertiary)]'}`}>
+                                                <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-bold capitalize border
+                                                    ${booking.status === 'confirmed' ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20' :
+                                                        booking.status === 'pending' ? 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-orange-500/10 dark:text-orange-400 dark:border-orange-500/20' :
+                                                            'bg-[var(--bg-secondary)] text-[var(--text-tertiary)] border-[var(--border-light)]'}`}>
                                                     {booking.status}
                                                 </span>
-                                            </td>
-                                        </tr>
+                                            </div>
+                                            <div className="flex justify-between items-end mt-3">
+                                                <span className="capitalize bg-[var(--surface-base)] px-2 py-1 rounded text-xs text-[var(--text-secondary)] border border-[var(--border-light)]">
+                                                    {booking.eventType}
+                                                </span>
+                                                <div className="text-right">
+                                                    <div className="font-mono text-sm text-[var(--text-primary)] font-medium">{formatMoney(total)}</div>
+                                                    {due > 0 && <div className="text-xs text-red-500 font-medium">Due: {formatMoney(due)}</div>}
+                                                </div>
+                                            </div>
+                                        </div>
                                     );
                                 })}
-                            </tbody>
-                        </table>
+                            </div>
+                        </>
                     ) : (
                         <div className="p-8 text-center text-[var(--text-secondary)]">
                             No upcoming events found. Time to make some calls!

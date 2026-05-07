@@ -1,9 +1,9 @@
-import { useNavigate, useLocation } from "react-router-dom";
+﻿import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth.ts";
 import {
     LogOut, Home, Calendar, Briefcase, Settings, Package, Trash2, Wallet,
     Users, BarChart3, Sparkles, MessageSquare, LucideIcon, Image as ImageIcon,
-    Star, TrendingUp
+    Star, 
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import ThemeToggle from "../ui/ThemeToggle";
@@ -15,14 +15,18 @@ interface SidebarItemProps {
     path: string;
     isActive: boolean;
     badge?: string;
+    onClick?: () => void;
 }
 
-const SidebarItem = ({ icon: Icon, label, path, isActive, badge }: SidebarItemProps) => {
+const SidebarItem = ({ icon: Icon, label, path, isActive, badge, onClick }: SidebarItemProps) => {
     const navigate = useNavigate();
 
     return (
         <button
-            onClick={() => navigate(path)}
+            onClick={() => {
+                navigate(path);
+                if (onClick) onClick();
+            }}
             className={cn(
                 "w-full flex items-center gap-3 px-4 py-3 text-sm font-medium transition-all border-l-4",
                 isActive
@@ -41,7 +45,7 @@ const SidebarItem = ({ icon: Icon, label, path, isActive, badge }: SidebarItemPr
     );
 };
 
-export const Sidebar = () => {
+export const Sidebar = ({ onCloseMobile }: { onCloseMobile?: () => void }) => {
     const { logout, studioId, isOwner } = useAuth();
     const location = useLocation();
     const navigate = useNavigate();
@@ -59,15 +63,15 @@ export const Sidebar = () => {
                 <div className="px-4 py-2">
                     <p className="text-[10px] font-bold text-[var(--text-tertiary)] uppercase tracking-widest">Main</p>
                 </div>
-                <SidebarItem icon={Home} label="Dashboard" path="/dashboard" isActive={currentPath === '/dashboard'} />
+                <SidebarItem icon={Home} label="Dashboard" path="/dashboard" isActive={currentPath === '/dashboard'} onClick={onCloseMobile} />
 
                 {/* OWNER ONLY: Enquiries */}
                 {isOwner && (
-                    <SidebarItem icon={MessageSquare} label="Enquiries" path="/enquiries" isActive={currentPath === '/enquiries'} />
+                    <SidebarItem icon={MessageSquare} label="Enquiries" path="/enquiries" isActive={currentPath === '/enquiries'} onClick={onCloseMobile} />
                 )}
 
-                <SidebarItem icon={Briefcase} label="Bookings" path="/bookings" isActive={currentPath.startsWith('/bookings')} />
-                <SidebarItem icon={Calendar} label="Calendar" path="/calendar" isActive={currentPath === '/calendar'} />
+                <SidebarItem icon={Briefcase} label="Bookings" path="/bookings" isActive={currentPath.startsWith('/bookings')} onClick={onCloseMobile} />
+                <SidebarItem icon={Calendar} label="Calendar" path="/calendar" isActive={currentPath === '/calendar'} onClick={onCloseMobile} />
 
                 {/* STUDIO */}
                 <div className="px-4 py-2 pt-4">
@@ -77,27 +81,27 @@ export const Sidebar = () => {
                 {/* OWNER ONLY: Gallery & Reviews */}
                 {isOwner && (
                     <>
-                        <SidebarItem icon={ImageIcon} label="Studio Gallery" path="/studio-gallery" isActive={currentPath === '/studio-gallery'} />
-                        <SidebarItem icon={Star} label="Reviews" path="/reviews" isActive={currentPath === '/reviews'} />
+                        <SidebarItem icon={ImageIcon} label="Studio Gallery" path="/studio-gallery" isActive={currentPath === '/studio-gallery'} onClick={onCloseMobile} />
+                        <SidebarItem icon={Star} label="Reviews" path="/reviews" isActive={currentPath === '/reviews'} onClick={onCloseMobile} />
                     </>
                 )}
 
-                <SidebarItem icon={Users} label="Team" path="/team" isActive={currentPath === '/team'} />
-                <SidebarItem icon={Package} label="Inventory" path="/inventory" isActive={currentPath.startsWith('/inventory')} />
+                <SidebarItem icon={Users} label="Team" path="/team" isActive={currentPath === '/team'} onClick={onCloseMobile} />
+                <SidebarItem icon={Package} label="Inventory" path="/inventory" isActive={currentPath.startsWith('/inventory')} onClick={onCloseMobile} />
 
                 {/* FINANCE */}
                 <div className="px-4 py-2 pt-4">
                     <p className="text-[10px] font-bold text-[var(--text-tertiary)] uppercase tracking-widest">Finance</p>
                 </div>
-                <SidebarItem icon={Wallet} label="Expenses" path="/expenses" isActive={currentPath === '/expenses'} />
-                <SidebarItem icon={BarChart3} label="Analytics" path="/analytics" isActive={currentPath === '/analytics'} />
+                <SidebarItem icon={Wallet} label="Expenses" path="/expenses" isActive={currentPath === '/expenses'} onClick={onCloseMobile} />
+                <SidebarItem icon={BarChart3} label="Analytics" path="/analytics" isActive={currentPath === '/analytics'} onClick={onCloseMobile} />
 
                 {/* AI STUDIO */}
                 <div className="px-4 py-2 pt-4">
                     <p className="text-[10px] font-bold text-[var(--text-tertiary)] uppercase tracking-widest">AI Studio</p>
                 </div>
                 <button
-                    onClick={() => navigate("/ai-tools")}
+                    onClick={() => { navigate("/ai-tools"); if (onCloseMobile) onCloseMobile(); }}
                     className={cn(
                         "w-full flex items-center gap-3 px-4 py-3 text-sm font-medium transition-all border-l-4",
                         currentPath === '/ai-tools'
@@ -113,8 +117,8 @@ export const Sidebar = () => {
                 <div className="px-4 py-2 pt-4">
                     <p className="text-[10px] font-bold text-[var(--text-tertiary)] uppercase tracking-widest">System</p>
                 </div>
-                <SidebarItem icon={Trash2} label="Bin" path="/trash" isActive={currentPath === '/trash'} />
-                <SidebarItem icon={Settings} label="Settings" path="/settings" isActive={currentPath === '/settings'} />
+                <SidebarItem icon={Trash2} label="Bin" path="/trash" isActive={currentPath === '/trash'} onClick={onCloseMobile} />
+                <SidebarItem icon={Settings} label="Settings" path="/settings" isActive={currentPath === '/settings'} onClick={onCloseMobile} />
             </nav>
 
             <div className="p-4 border-t border-[var(--border-light)] space-y-3 flex-shrink-0">
@@ -129,7 +133,7 @@ export const Sidebar = () => {
                     </p>
                 </div>
                 <button
-                    onClick={() => logout()}
+                    onClick={() => { logout(); if (onCloseMobile) onCloseMobile(); }}
                     className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-400 hover:bg-slate-800 rounded-lg transition-colors"
                 >
                     <LogOut size={16} />

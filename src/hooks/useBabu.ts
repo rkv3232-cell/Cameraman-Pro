@@ -7,17 +7,17 @@ import { voiceService } from '../lib/voiceService';
 import { useBookings } from './useBookings';
 import { useInventory } from './useInventory';
 import {
-    findBookingsByDate,
-    findBookingsByClient,
-    findBookingsWithPendingPayment,
+    
+    
+    
     detectEquipmentConflicts,
-    getPendingPostProduction,
-    analyzeClientHistory,
+    
+    
     generateBookingActions,
     BabuAction,
     BabuContext
 } from '../lib/babuIntelligence';
-import { format, isToday, isTomorrow, isPast } from 'date-fns';
+import { format, isToday, isTomorrow } from 'date-fns';
 import { sendWhatsAppMessage } from '../utils/whatsapp';
 
 // ─── Helper ────────────────────────────────────────────────────────────────────
@@ -55,14 +55,14 @@ interface ConversationContext {
 // ─── Build rich context string for AI ─────────────────────────────────────────
 function buildRichContext(
     bookings: any[],
-    inventory: any[],
+    
     userName?: string,
-    userRole?: string
+    
 ): string {
     const now = new Date();
     const todayBookings = bookings.filter(b => isToday(toDate(b.eventDate)));
     const tomorrowBookings = bookings.filter(b => isTomorrow(toDate(b.eventDate)));
-    const pendingConfirm = bookings.filter(b => b.status === 'pending');
+    
     const pendingPayments = bookings.filter(b => (b.financials?.balanceDue ?? 0) > 0);
     const conflicts = detectEquipmentConflicts(bookings);
 
@@ -85,7 +85,7 @@ export function useBabu() {
     const [messages, setMessages] = useState<Message[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [hasGreeted, setHasGreeted] = useState(false);
-    const [context, setContext] = useState<ConversationContext>({});
+    const [context] = useState<ConversationContext>({});
     const [voiceActivated, setVoiceActivated] = useState(voiceService.isActivated());
     const [isListening, setIsListening] = useState(false);
 
@@ -114,7 +114,7 @@ export function useBabu() {
     const { inventory } = useInventory();
 
     const greetingShownRef = useRef(false);
-    const voiceGreetingRef = useRef(false);
+    
     const messagesRef = useRef<Message[]>([]);
     messagesRef.current = messages;
 
@@ -156,7 +156,7 @@ export function useBabu() {
         const name = userProfile?.name ?? 'Boss';
 
         const todayShots = bookings.filter(b => isToday(toDate(b.eventDate)));
-        const totalPending = findBookingsWithPendingPayment(bookings).reduce((s, b) => s + (b.financials?.balanceDue ?? 0), 0);
+        
 
         let greeting = "";
         if (timeOfDay === 'morning') greeting = `सुप्रभात **${name}**! 🌅`;
@@ -175,7 +175,7 @@ export function useBabu() {
         return { message: msg, actions };
     }, [bookings, userProfile]);
 
-    const processLocalIntent = useCallback((text: string, babuCtx: BabuContext) => {
+    const processLocalIntent = useCallback((text: string, _babuCtx: BabuContext) => {
         const q = text.toLowerCase().trim();
 
         if (context.lastBookingId && q.match(/(sab|detail|puri|poori|bata|khol|open|show|dekh)/)) {
@@ -199,8 +199,8 @@ export function useBabu() {
         addMessage('user', text);
         setIsLoading(true);
 
-        const babuCtx: BabuContext = { bookings, inventory, currentDate: new Date(), userName: userProfile?.name };
-        const local = processLocalIntent(text, babuCtx);
+        const _babuCtx: BabuContext = { bookings, inventory, currentDate: new Date(), userName: userProfile?.name };
+        const local = processLocalIntent(text, _babuCtx);
 
         if (local.handled) {
             setTimeout(() => {
@@ -211,7 +211,7 @@ export function useBabu() {
         }
 
         try {
-            const richContext = buildRichContext(bookings, inventory, userProfile?.name);
+            const richContext = buildRichContext(bookings, userProfile?.name);
             const history = messagesRef.current.slice(-10).map(m => ({ role: m.role, content: m.content }));
             const aiResponse = await sendMessageToBabu(text, richContext, history);
             addMessage('assistant', aiResponse);

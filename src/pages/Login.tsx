@@ -1,5 +1,5 @@
-import { useState, FormEvent } from "react";
-import { Navigate, useNavigate } from "react-router-dom";
+﻿import { useState, FormEvent } from "react";
+import { Navigate,  } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import { Logo } from "../components/layout/Logo";
 import { Loader2, Mail, Lock, User, Eye, EyeOff, Chrome, ArrowRight, KeyRound } from "lucide-react";
@@ -8,8 +8,8 @@ import toast from "react-hot-toast";
 type AuthTab = "login" | "register" | "forgot";
 
 export const Login = () => {
-    const { loginWithGoogle, loginWithEmail, registerWithEmail, resetPassword, user, loading, isOwner, isClient } = useAuth();
-    const navigate = useNavigate();
+    const { loginWithGoogle, loginWithEmail, registerWithEmail, resetPassword, user, loading, isOwner } = useAuth();
+    
 
     const [tab, setTab] = useState<AuthTab>("login");
     const [showPassword, setShowPassword] = useState(false);

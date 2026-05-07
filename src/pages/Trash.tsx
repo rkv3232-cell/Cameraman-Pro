@@ -16,54 +16,94 @@ export const Trash = () => {
 
             <div className="bg-[var(--surface-base)] rounded-xl border border-[var(--border-light)] overflow-hidden shadow-sm">
                 {trashItems.length > 0 ? (
-                    <table className="w-full text-left">
-                        <thead className="bg-[var(--bg-secondary)] text-[var(--text-secondary)] text-sm">
-                            <tr>
-                                <th className="p-4 font-medium uppercase tracking-wider text-xs">Type</th>
-                                <th className="p-4 font-medium uppercase tracking-wider text-xs">Items Details</th>
-                                <th className="p-4 font-medium uppercase tracking-wider text-xs">Deleted At</th>
-                                <th className="p-4 font-medium uppercase tracking-wider text-xs">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-[var(--border-light)]">
+                    <>
+                        <div className="hidden md:block overflow-x-auto">
+                            <table className="w-full text-left">
+                                <thead className="bg-[var(--bg-secondary)] text-[var(--text-secondary)] text-sm">
+                                    <tr>
+                                        <th className="p-4 font-medium uppercase tracking-wider text-xs">Type</th>
+                                        <th className="p-4 font-medium uppercase tracking-wider text-xs">Items Details</th>
+                                        <th className="p-4 font-medium uppercase tracking-wider text-xs">Deleted At</th>
+                                        <th className="p-4 font-medium uppercase tracking-wider text-xs">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-[var(--border-light)]">
+                                    {trashItems.map((item) => (
+                                        <tr key={item.id} className="hover:bg-[var(--surface-hover)] transition-colors">
+                                            <td className="p-4 capitalize text-[var(--text-secondary)]">
+                                                <span className="px-2 py-1 rounded-md bg-[var(--bg-secondary)] text-xs border border-[var(--border-light)]">
+                                                    {item.originalCollection}
+                                                </span>
+                                            </td>
+                                            <td className="p-4 text-[var(--text-primary)]">
+                                                <div className="font-medium">
+                                                    {item.data?.clientName || item.data?.name || "Unknown Item"}
+                                                </div>
+                                                <div className="text-xs text-[var(--text-tertiary)] font-mono mt-0.5">
+                                                    ID: {item.originalId}
+                                                </div>
+                                            </td>
+                                            <td className="p-4 text-[var(--text-secondary)] text-sm">
+                                                {item.deletedAt && item.deletedAt.toDate ? format(item.deletedAt.toDate(), "PP p") : 'Unknown Date'}
+                                            </td>
+                                            <td className="p-4 flex gap-2">
+                                                <button
+                                                    onClick={() => restoreItem(item)}
+                                                    className="p-2 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 rounded-lg transition-colors"
+                                                    title="Restore"
+                                                >
+                                                    <RotateCcw size={18} />
+                                                </button>
+                                                <button
+                                                    onClick={() => permanentDelete(item.id)}
+                                                    className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition-colors"
+                                                    title="Permanently Delete"
+                                                >
+                                                    <AlertOctagon size={18} />
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                        <div className="grid grid-cols-1 gap-4 p-4 md:hidden">
                             {trashItems.map((item) => (
-                                <tr key={item.id} className="hover:bg-[var(--surface-hover)] transition-colors">
-                                    <td className="p-4 capitalize text-[var(--text-secondary)]">
-                                        <span className="px-2 py-1 rounded-md bg-[var(--bg-secondary)] text-xs border border-[var(--border-light)]">
+                                <div key={item.id} className="bg-[var(--bg-secondary)] p-4 rounded-xl border border-[var(--border-light)]">
+                                    <div className="flex justify-between items-start mb-2">
+                                        <div>
+                                            <div className="font-medium text-[var(--text-primary)]">
+                                                {item.data?.clientName || item.data?.name || "Unknown Item"}
+                                            </div>
+                                            <div className="text-xs text-[var(--text-tertiary)] font-mono mt-0.5">
+                                                ID: {item.originalId}
+                                            </div>
+                                        </div>
+                                        <span className="px-2 py-1 rounded-md bg-[var(--surface-base)] text-xs border border-[var(--border-light)] capitalize text-[var(--text-secondary)]">
                                             {item.originalCollection}
                                         </span>
-                                    </td>
-                                    <td className="p-4 text-[var(--text-primary)]">
-                                        <div className="font-medium">
-                                            {item.data?.clientName || item.data?.name || "Unknown Item"}
-                                        </div>
-                                        <div className="text-xs text-[var(--text-tertiary)] font-mono mt-0.5">
-                                            ID: {item.originalId}
-                                        </div>
-                                    </td>
-                                    <td className="p-4 text-[var(--text-secondary)] text-sm">
-                                        {item.deletedAt && item.deletedAt.toDate ? format(item.deletedAt.toDate(), "PP p") : 'Unknown Date'}
-                                    </td>
-                                    <td className="p-4 flex gap-2">
+                                    </div>
+                                    <div className="text-xs text-[var(--text-secondary)] mb-3">
+                                        Deleted: {item.deletedAt && item.deletedAt.toDate ? format(item.deletedAt.toDate(), "PP p") : 'Unknown Date'}
+                                    </div>
+                                    <div className="flex justify-end gap-2 border-t border-[var(--border-light)] pt-3">
                                         <button
                                             onClick={() => restoreItem(item)}
-                                            className="p-2 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 rounded-lg transition-colors"
-                                            title="Restore"
+                                            className="px-3 py-1.5 flex items-center gap-1.5 text-xs font-medium text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 rounded-lg transition-colors"
                                         >
-                                            <RotateCcw size={18} />
+                                            <RotateCcw size={14} /> Restore
                                         </button>
                                         <button
                                             onClick={() => permanentDelete(item.id)}
-                                            className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition-colors"
-                                            title="Permanently Delete"
+                                            className="px-3 py-1.5 flex items-center gap-1.5 text-xs font-medium text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition-colors"
                                         >
-                                            <AlertOctagon size={18} />
+                                            <AlertOctagon size={14} /> Delete Forever
                                         </button>
-                                    </td>
-                                </tr>
+                                    </div>
+                                </div>
                             ))}
-                        </tbody>
-                    </table>
+                        </div>
+                    </>
                 ) : (
                     <div className="p-12 text-center text-[var(--text-tertiary)]">
                         <Trash2 size={48} className="mx-auto mb-4 opacity-20" />
