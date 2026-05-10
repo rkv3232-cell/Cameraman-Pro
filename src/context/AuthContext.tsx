@@ -3,9 +3,10 @@ import {
     User,
     onAuthStateChanged,
     signInWithPopup,
+    signInWithRedirect,
+    getRedirectResult,
     GoogleAuthProvider,
     signOut,
-    signInWithCredential,
     signInWithEmailAndPassword,
     createUserWithEmailAndPassword,
     updateProfile,
@@ -64,6 +65,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     useEffect(() => {
         let profileUnsub: (() => void) | null = null;
+
+        // Check for redirect result when app opens (crucial for Mobile App Google Login)
+        getRedirectResult(auth).then(async (result) => {
+            if (result && result.user) {
+                const userDocRef = doc(db, "users", result.user.uid);
+                const userSnap = await getDoc(userDocRef);
+                if (!userSnap.exists()) {
+                    await createNewUserProfile(result.user);
+                }
+            }
+        }).catch((error) => {
+            console.error("Redirect login error:", error);
+        });
 
         const authUnsub = onAuthStateChanged(auth, async (firebaseUser) => {
             if (profileUnsub) {
@@ -150,23 +164,21 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const loginWithGoogle = async () => {
         try {
             setLoading(true);
-            let fbUser: User;
+            const provider = new GoogleAuthProvider();
 
             if (Capacitor.isNativePlatform()) {
-                const result = await FirebaseAuthentication.signInWithGoogle();
-                const credential = GoogleAuthProvider.credential(result.credential?.idToken);
-                const authResult = await signInWithCredential(auth, credential);
-                fbUser = authResult.user;
+                // In mobile app, popup is blocked, so we use redirect
+                await signInWithRedirect(auth, provider);
+                return; // Halt execution as page redirects
             } else {
-                const provider = new GoogleAuthProvider();
+                // In normal web browser
                 const result = await signInWithPopup(auth, provider);
-                fbUser = result.user;
-            }
-
-            const userDocRef = doc(db, "users", fbUser.uid);
-            const userSnap = await getDoc(userDocRef);
-            if (!userSnap.exists()) {
-                await createNewUserProfile(fbUser);
+                const fbUser = result.user;
+                const userDocRef = doc(db, "users", fbUser.uid);
+                const userSnap = await getDoc(userDocRef);
+                if (!userSnap.exists()) {
+                    await createNewUserProfile(fbUser);
+                }
             }
         } catch (error) {
             console.error("Google login failed", error);

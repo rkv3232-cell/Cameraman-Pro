@@ -4,6 +4,10 @@ const config: CapacitorConfig = {
   appId: 'com.cameraman.pro',
   appName: 'Cameraman Pro',
   webDir: 'dist',
+  server: {
+    url: 'https://cameraman-pro-2aa2b.web.app',
+    cleartext: true
+  },
   plugins: {
     FirebaseAuthentication: {
       // Set to false so the plugin does NOT manage Firebase auth state itself.
