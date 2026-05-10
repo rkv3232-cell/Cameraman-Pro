@@ -114,6 +114,7 @@ export interface StudioDetails {
 }
 
 export type BookingStatus = 'pending' | 'confirmed' | 'completed' | 'cancelled' | 'deleted';
+export type ShootStatus = 'upcoming' | 'completed';
 export type EventType = 'wedding' | 'pre-wedding' | 'birthday' | 'corporate' | 'other';
 export type PaymentMethod = 'cash' | 'upi' | 'bank_transfer' | 'cheque';
 export type EquipmentCategory = 'camera' | 'lens' | 'lighting' | 'tripod' | 'accessory' | 'drone';
@@ -216,6 +217,10 @@ export interface Booking {
 
     // Shoot Day Timeline
     shootTimeline?: ShootTimelineEntry[];
+
+    // Shoot Status (Upcoming / Completed)
+    shootStatus?: ShootStatus;
+    completedAt?: Timestamp | null;
 
     // Meta
     status: BookingStatus;

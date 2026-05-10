@@ -6,6 +6,20 @@
   <link rel="icon" type="image/png" href="/logo.png" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Cameraman Pro | Studio Management</title>
+  <!-- OneSignal SDK -->
+  <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
+  <script>
+    window.OneSignalDeferred = window.OneSignalDeferred || [];
+    OneSignalDeferred.push(async function(OneSignal) {
+      await OneSignal.init({
+        appId: "dace33a2-e5b8-4316-a91f-dfb37046113e",
+        safari_web_id: "web.onesignal.auto.5a0d3b6a-9b1a-4b0a-8b0a-8b0a8b0a8b0a",
+        notifyButton: {
+          enable: true,
+        },
+      });
+    });
+  </script>
 </head>
 
 <body>

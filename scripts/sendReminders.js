@@ -1,40 +1,42 @@
 import admin from 'firebase-admin';
 import { format } from 'date-fns';
+import fetch from 'node-fetch';
 
 /**
- * CAMERAMAN PRO - Automated Booking Reminders
- * This script runs in GitHub Actions to send notifications on the Free Plan.
+ * CAMERAMAN PRO - Automated Booking Reminders (OneSignal Version)
+ * This script runs in GitHub Actions to send notifications via OneSignal.
  */
 
-// 1. Initialize Firebase Admin
+// 1. Initialize Firebase Admin (for Firestore access)
 if (!process.env.FIREBASE_SERVICE_ACCOUNT) {
   console.error("❌ Error: FIREBASE_SERVICE_ACCOUNT environment variable is missing.");
   process.exit(1);
 }
 
 const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+const ONESIGNAL_APP_ID = process.env.ONESIGNAL_APP_ID || "dace33a2-e5b8-4316-a91f-dfb37046113e";
+const ONESIGNAL_REST_API_KEY = process.env.ONESIGNAL_REST_API_KEY;
+
+if (!ONESIGNAL_REST_API_KEY) {
+    console.error("❌ Error: ONESIGNAL_REST_API_KEY environment variable is missing.");
+    process.exit(1);
+}
 
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount)
 });
 
 const db = admin.firestore();
-const messaging = admin.messaging();
 
 async function sendReminders() {
-  console.log("🚀 Starting Booking Reminders check...");
+  console.log("🚀 Starting OneSignal Booking Reminders check...");
   
-  // Calculate current time in IST (UTC+5:30)
   const now = new Date();
   const istOffset = 5.5 * 60 * 60 * 1000;
   const istNow = new Date(now.getTime() + istOffset);
   
   const currentHourStr = format(istNow, "HH:00");
   const todayStr = format(istNow, 'yyyy-MM-dd');
-  
-  // For Firestore Timestamp queries
-  const startOfDay = new Date(istNow.getFullYear(), istNow.getMonth(), istNow.getDate());
-  const endOfDay = new Date(istNow.getFullYear(), istNow.getMonth(), istNow.getDate(), 23, 59, 59, 999);
 
   console.log(`⏰ Current Time (IST): ${format(istNow, "HH:mm")}`);
   console.log(`📅 Search Date: ${todayStr}`);
@@ -56,13 +58,10 @@ async function sendReminders() {
       return;
   }
 
-  console.log(`✅ Found ${activeStudios.length} studios scheduled for this hour.`);
-
   // 3. Process each studio
   for (const studio of activeStudios) {
       console.log(`\n--- Studio: ${studio.studioId} ---`);
       
-      // Get all active bookings for this studio
       const bookingsSnapshot = await db.collection("bookings")
           .where("studioId", "==", studio.studioId)
           .where("status", "in", ["confirmed", "pending"])
@@ -73,13 +72,11 @@ async function sendReminders() {
           continue;
       }
 
-      // Filter bookings that have an event TODAY (Main or Sub-event)
       const todaysBookings = [];
       bookingsSnapshot.forEach(doc => {
           const booking = doc.data();
           const mainDate = booking.eventDate?.toDate();
           const mainDateStr = mainDate ? format(mainDate, 'yyyy-MM-dd') : null;
-          
           const subEventDates = booking.subEvents?.map(se => se.date) || [];
           
           if (mainDateStr === todayStr || subEventDates.includes(todayStr)) {
@@ -92,26 +89,12 @@ async function sendReminders() {
           continue;
       }
 
-      // Get FCM tokens for the studio owner/staff
-      const tokensSnapshot = await db.collection("notificationTokens")
-          .where("userId", "==", studio.studioId)
-          .get();
-          
-      if (tokensSnapshot.empty) {
-          console.log(`  ⚠️ No notification tokens found. Cannot send messages.`);
-          continue;
-      }
-
-      const tokens = [];
-      tokensSnapshot.forEach(doc => tokens.push(doc.data().token));
-
-      // 4. Send Reminders for each booking found
+      // 4. Send Reminders via OneSignal API
       for (const booking of todaysBookings) {
           const clientName = booking.clientName || 'Client';
           const eventType = booking.eventType || 'Event';
           const venue = booking.venue || 'Unknown Location';
           
-          // Determine the time to show (Sub-event time takes priority)
           let displayTime = 'TBD';
           const subEvent = booking.subEvents?.find(se => se.date === todayStr);
           if (subEvent) {
@@ -126,24 +109,27 @@ async function sendReminders() {
                                  .replace(/{location}/g, venue)
                                  .replace(/{eventTime}/g, displayTime);
 
+          const notificationPayload = {
+              app_id: ONESIGNAL_APP_ID,
+              include_external_user_ids: [studio.studioId], // We linked OneSignal User to Firebase UID
+              contents: { "en": customBody },
+              headings: { "en": "📸 Cameraman Pro Reminder" },
+              url: `https://cameraman-pro-2aa2b.web.app/bookings`
+          };
+
           try {
-              const response = await messaging.sendEachForMulticast({
-                  notification: {
-                      title: "📸 Cameraman Pro Reminder",
-                      body: customBody,
+              const response = await fetch('https://onesignal.com/api/v1/notifications', {
+                  method: 'POST',
+                  headers: {
+                      'Content-Type': 'application/json',
+                      'Authorization': `Basic ${ONESIGNAL_REST_API_KEY}`
                   },
-                  tokens: tokens,
-                  android: { 
-                      priority: "high",
-                      notification: {
-                          channelId: "booking_reminders",
-                          priority: "max"
-                      }
-                  },
+                  body: JSON.stringify(notificationPayload)
               });
-              console.log(`  ✅ Notification sent for ${clientName} (${eventType}): ${response.successCount} ok, ${response.failureCount} fail.`);
+              const result = await response.json();
+              console.log(`  ✅ OneSignal sent for ${clientName}:`, result);
           } catch (e) {
-              console.error(`  ❌ Failed to send notification:`, e.message);
+              console.error(`  ❌ Failed to send OneSignal notification:`, e.message);
           }
       }
   }

@@ -26,4 +26,6 @@ jobs:
       - name: 🔔 Run Reminders Script
         env:
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          ONESIGNAL_APP_ID: "dace33a2-e5b8-4316-a91f-dfb37046113e"
+          ONESIGNAL_REST_API_KEY: ${{ secrets.ONESIGNAL_REST_API_KEY }}
         run: node scripts/sendReminders.js

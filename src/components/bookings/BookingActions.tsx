@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Booking } from "../../types";
 import { WhatsAppButton, getBookingConfirmationMessage, getPaymentReminderMessage, getFollowUpMessage } from "../../utils/whatsapp";
-import { Phone, MoreVertical, Edit2, Trash2 } from "lucide-react";
+import { Phone, MoreVertical, Edit2, Trash2, CheckCircle2 } from "lucide-react";
 import { format } from "date-fns";
 import { formatMoney } from "../../utils/currency";
 
@@ -9,10 +9,12 @@ interface BookingActionsProps {
     booking: Booking;
     onEdit: (booking: Booking) => void;
     onDelete: (booking: Booking) => void;
+    onMarkCompleted?: (bookingId: string) => void;
 }
 
-export const BookingActions = ({ booking, onEdit, onDelete }: BookingActionsProps) => {
+export const BookingActions = ({ booking, onEdit, onDelete, onMarkCompleted }: BookingActionsProps) => {
     const [isOpen, setIsOpen] = useState(false);
+    const isUpcoming = !booking.shootStatus || booking.shootStatus === 'upcoming';
 
     const toggleOpen = (e: React.MouseEvent) => {
         e.stopPropagation();
@@ -64,6 +66,16 @@ export const BookingActions = ({ booking, onEdit, onDelete }: BookingActionsProp
                     label=""
                     className="p-2 text-[var(--text-tertiary)] hover:text-emerald-500 hover:bg-emerald-50 dark:hover:bg-green-500/10 rounded-lg transition-colors"
                 />
+
+                {isUpcoming && onMarkCompleted && (
+                    <button
+                        onClick={(e) => { e.stopPropagation(); onMarkCompleted(booking.id); }}
+                        className="p-2 text-[var(--text-tertiary)] hover:text-green-500 hover:bg-green-50 dark:hover:bg-green-500/10 rounded-lg transition-colors"
+                        title="Mark as Completed"
+                    >
+                        <CheckCircle2 size={16} />
+                    </button>
+                )}
 
                 <button
                     onClick={(e) => { e.stopPropagation(); onEdit(booking); }}
@@ -134,6 +146,15 @@ export const BookingActions = ({ booking, onEdit, onDelete }: BookingActionsProp
                             />
 
                             <div className="border-t border-[var(--border-light)] my-1" />
+
+                            {isUpcoming && onMarkCompleted && (
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); onMarkCompleted(booking.id); setIsOpen(false); }}
+                                    className="w-full text-left px-4 py-2 text-sm text-green-600 hover:bg-green-50 dark:hover:bg-green-500/10 flex items-center gap-2 font-medium"
+                                >
+                                    <CheckCircle2 size={14} className="text-green-500" /> Mark as Completed
+                                </button>
+                            )}
 
                             <button
                                 onClick={(e) => { e.stopPropagation(); onEdit(booking); setIsOpen(false); }}

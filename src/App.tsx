@@ -22,6 +22,8 @@ import { AITools } from "./pages/AITools";
 import { Enquiries } from "./pages/Enquiries";
 import { GalleryAdmin } from "./pages/GalleryAdmin";
 import { AdminReviews } from "./pages/admin/Reviews";
+import { UpcomingShoots } from "./pages/UpcomingShoots";
+import { CompletedShoots } from "./pages/CompletedShoots";
 import { Home } from "./pages/public/Home";
 import { Gallery } from "./pages/public/Gallery";
 import { About } from "./pages/public/About";
@@ -64,6 +66,8 @@ function App() {
                                     <Route path="/team" element={<Team />} />
                                     <Route path="/analytics" element={<Analytics />} />
                                     <Route path="/ai-tools" element={<AITools />} />
+                                    <Route path="/upcoming-shoots" element={<UpcomingShoots />} />
+                                    <Route path="/completed-shoots" element={<CompletedShoots />} />
 
                                     {/* OWNER ONLY ROUTES */}
                                     <Route element={<ProtectedRoute allowedRoles={['owner']} />}>

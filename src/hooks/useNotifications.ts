@@ -1,92 +1,89 @@
 import { useState, useEffect } from 'react';
-import { getMessaging, getToken, onMessage } from 'firebase/messaging';
 import { collection, doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '../lib/firebase';
 import toast from 'react-hot-toast';
+
+// Extend window for OneSignal
+declare global {
+  interface Window {
+    OneSignalDeferred: any[];
+  }
+}
 
 export const useNotifications = () => {
     const [token, setToken] = useState<string | null>(null);
     const [permission, setPermission] = useState<NotificationPermission>('default');
 
     useEffect(() => {
-        if (!('Notification' in window)) {
-            console.log('This browser does not support desktop notification');
-            return;
+        if (typeof window !== 'undefined') {
+            window.OneSignalDeferred = window.OneSignalDeferred || [];
+            window.OneSignalDeferred.push(async (OneSignal: any) => {
+                const perm = await OneSignal.Notifications.permission ? 'granted' : 'default';
+                setPermission(perm as NotificationPermission);
+            });
         }
-        setPermission(Notification.permission);
     }, []);
 
     const requestPermission = async () => {
-        try {
-            if (!('Notification' in window)) return null;
-
-            const perm = await Notification.requestPermission();
-            setPermission(perm);
-
-            if (perm === 'granted') {
-                const messaging = getMessaging();
-                
-                // Get registration token. Initially this makes a network call, once retrieved
-                // subsequent calls to getToken will return from cache.
-                const currentToken = await getToken(messaging, {
-                    vapidKey: "BLX8xiBpFQrp8G8MRhAwWOYKI9Jc8JggkcOx4jQsFAClnsC0JGjYmMIhXbBF55ihN1Y0ptROWLWzFaHzOeKgLgQ"
-                });
-
-                if (currentToken) {
-                    setToken(currentToken);
-                    await saveTokenToFirestore(currentToken);
-                    toast.success('✅ Notification enabled successfully');
-                    return currentToken;
-                } else {
-                    console.log('No registration token available. Request permission to generate one.');
+        return new Promise<string | null>((resolve) => {
+            window.OneSignalDeferred.push(async (OneSignal: any) => {
+                try {
+                    console.log("Requesting OneSignal Permission...");
+                    await OneSignal.Notifications.requestPermission();
+                    
+                    const isPushEnabled = OneSignal.Notifications.permission;
+                    
+                    if (isPushEnabled) {
+                        const subscriptionId = OneSignal.User.PushSubscription.id;
+                        if (subscriptionId) {
+                            setToken(subscriptionId);
+                            setPermission('granted');
+                            await saveTokenToFirestore(subscriptionId);
+                            toast.success('✅ Notifications enabled via OneSignal');
+                            resolve(subscriptionId);
+                        } else {
+                            console.warn("OneSignal initialized but no subscription ID yet.");
+                            resolve(null);
+                        }
+                    } else {
+                        toast.error('Notification permission denied');
+                        resolve(null);
+                    }
+                } catch (error) {
+                    console.error('OneSignal Error:', error);
+                    toast.error('Notification setup failed');
+                    resolve(null);
                 }
-            } else {
-                console.log('Unable to get permission to notify.');
-                toast.error('Notification permission denied');
-            }
-        } catch (error) {
-            console.error('An error occurred while retrieving token. ', error);
-        }
-        return null;
+            });
+        });
     };
 
-    const saveTokenToFirestore = async (fcmToken: string) => {
+    const saveTokenToFirestore = async (subscriptionId: string) => {
         const user = auth.currentUser;
         if (!user) return;
 
         try {
-            const tokenRef = doc(collection(db, 'notificationTokens'), user.uid + '_' + fcmToken.substring(0, 10));
+            // Store OneSignal Subscription ID in the same collection
+            // We use a prefix to distinguish from old FCM tokens
+            const tokenRef = doc(collection(db, 'notificationTokens'), user.uid + '_os_' + subscriptionId.substring(0, 8));
             await setDoc(tokenRef, {
                 userId: user.uid,
-                token: fcmToken,
+                token: subscriptionId,
+                type: 'onesignal',
                 device: navigator.userAgent,
                 createdAt: serverTimestamp(),
             });
+
+            // Associate the OneSignal user with our Firebase UID
+            window.OneSignalDeferred.push(async (OneSignal: any) => {
+                await OneSignal.login(user.uid);
+                console.log("OneSignal User Linked:", user.uid);
+            });
+
         } catch (error) {
-            console.error('Error saving FCM token to Firestore:', error);
+            console.error('Error saving OneSignal token to Firestore:', error);
         }
     };
-
-    // Listen for foreground messages
-    useEffect(() => {
-        try {
-            if (permission === 'granted') {
-                const messaging = getMessaging();
-                const unsubscribe = onMessage(messaging, (payload) => {
-                    console.log('Message received in foreground. ', payload);
-                    if (payload.notification?.title) {
-                        toast(payload.notification.title + '\n' + (payload.notification.body || ''), {
-                            icon: '🔔',
-                            duration: 5000,
-                        });
-                    }
-                });
-                return () => unsubscribe();
-            }
-        } catch (e) {
-            console.log('Foreground messaging not initialized', e);
-        }
-    }, [permission]);
 
     return { token, permission, requestPermission };
 };

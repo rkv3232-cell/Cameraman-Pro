@@ -1,42 +1,34 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useInventory } from "../../hooks/useInventory";
 import { useBookings } from "../../hooks/useBookings";
 import { BookedEquipmentItem, EquipmentCategory, InventoryItem } from "../../types";
-import { Camera, Zap, Disc, Plus, Trash2, AlertTriangle, XCircle, CheckCircle } from "lucide-react";
-import { useState } from "react";
+import { Camera, Zap, Disc, AlertTriangle, XCircle, Search, Hexagon, Maximize, Plus, Check } from "lucide-react";
 import {
     batchCheckConflicts,
     EQUIPMENT_STATUS_CONFIG,
     isStatusBlocked,
 } from "../../lib/equipmentConflict";
-
-// ─── Props ────────────────────────────────────────────────────────────────────
+import { motion, AnimatePresence } from "framer-motion";
 
 interface EquipmentSelectorProps {
     selectedEquipment: BookedEquipmentItem[];
     onUpdate: (items: BookedEquipmentItem[]) => void;
-    /** The primary event date for the booking being created/edited */
     eventDate: Date;
-    /** Start of the booking date range (earliest sub-event). Defaults to eventDate. */
     rangeStart?: Date;
-    /** End of the booking date range (latest sub-event). Defaults to eventDate. */
     rangeEnd?: Date;
-    /** Booking ID being edited (excluded from conflict scan) */
     editingBookingId?: string;
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
 const getIcon = (cat: string) => {
     switch (cat) {
-        case 'camera': return <Camera size={16} />;
-        case 'lighting': return <Zap size={16} />;
-        case 'lens': return <Disc size={16} />;
-        default: return <Camera size={16} />;
+        case 'camera': return <Camera size={24} className="text-slate-500" />;
+        case 'lighting': return <Zap size={24} className="text-slate-500" />;
+        case 'lens': return <Disc size={24} className="text-slate-500" />;
+        case 'drone': return <Hexagon size={24} className="text-slate-500" />;
+        case 'accessory': return <Maximize size={24} className="text-slate-500" />;
+        default: return <Camera size={24} className="text-slate-500" />;
     }
 };
-
-// ─── Component ────────────────────────────────────────────────────────────────
 
 export const EquipmentSelector = ({
     selectedEquipment,
@@ -52,20 +44,17 @@ export const EquipmentSelector = ({
     const [categoryFilter, setCategoryFilter] = useState<EquipmentCategory | 'all'>('all');
     const [searchTerm, setSearchTerm] = useState("");
 
-    // Build the date range to check conflicts against
     const targetRange = useMemo(() => {
         const start = new Date(rangeStart ?? eventDate); start.setHours(0, 0, 0, 0);
         const end = new Date(rangeEnd ?? eventDate); end.setHours(23, 59, 59, 999);
         return { start, end };
     }, [rangeStart, rangeEnd, eventDate]);
 
-    // Run batch conflict check for all inventory items
     const conflictMap = useMemo(
         () => batchCheckConflicts(inventory, targetRange, bookings, editingBookingId),
         [inventory, targetRange, bookings, editingBookingId]
     );
 
-    // Filtered list — exclude deleted items; keep damaged/in_service so user sees why they can't add
     const filteredInventory = useMemo(() => {
         return inventory.filter(item => {
             if (item.status === 'deleted') return false;
@@ -77,12 +66,13 @@ export const EquipmentSelector = ({
         });
     }, [inventory, categoryFilter, searchTerm]);
 
-    // Add item to selection — blocked if status disallows or conflicts exist
     const handleAddItem = (item: InventoryItem) => {
-        if (selectedEquipment.find(e => e.itemId === item.id)) return; // already added
+        if (selectedEquipment.find(e => e.itemId === item.id)) {
+            handleRemoveItem(item.id);
+            return;
+        }
         const result = conflictMap.get(item.id);
-        if (result?.isStatusBlocked) return;  // hard block
-        // If date conflict — still allow, but warn. Photographer may have confirmed verbally.
+        if (result?.isStatusBlocked) return;
         onUpdate([...selectedEquipment, {
             itemId: item.id,
             name: item.name,
@@ -96,225 +86,143 @@ export const EquipmentSelector = ({
         onUpdate(selectedEquipment.filter(i => i.itemId !== itemId));
     };
 
-    const handleUpdateQty = (itemId: string, delta: number) => {
-        onUpdate(selectedEquipment.map(item =>
-            item.itemId === itemId ? { ...item, qty: Math.max(1, item.qty + delta) } : item
-        ));
-    };
-
-    // Count of selected items that have conflicts (for summary banner)
-    const conflictedCount = selectedEquipment.filter(sel => {
-        const r = conflictMap.get(sel.itemId);
-        return r?.hasConflict;
-    }).length;
+    const categories: (EquipmentCategory | 'all')[] = ['all', 'camera', 'lens', 'lighting', 'drone', 'accessory'];
 
     return (
-        <div className="space-y-4 border border-[var(--border-light)] rounded-xl p-4 bg-[var(--surface-base)]">
-            <h3 className="text-sm font-medium text-[var(--text-secondary)] flex items-center gap-2">
-                <Camera size={18} className="text-orange-500" />
-                Equipment &amp; Gear
-            </h3>
-
-            {/* Category tabs */}
-            <div className="flex gap-2 pb-2 overflow-x-auto">
-                {(['all', 'camera', 'lens', 'lighting', 'accessory'] as const).map(cat => (
-                    <button
-                        type="button"
-                        key={cat}
-                        onClick={() => setCategoryFilter(cat)}
-                        className={`px-3 py-1.5 rounded-full text-xs font-medium capitalize transition-colors whitespace-nowrap
-                            ${categoryFilter === cat
-                                ? 'bg-orange-500 text-white'
-                                : 'bg-[var(--bg-secondary)] text-[var(--text-secondary)] hover:bg-[var(--surface-active)]'}`}
-                    >
-                        {cat}
-                    </button>
-                ))}
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* ── Available inventory list ────────────────────────── */}
-                <div className="space-y-2 h-64 overflow-y-auto pr-2">
+        <div className="space-y-6">
+            {/* Search and Filters */}
+            <div className="flex flex-col md:flex-row gap-4 justify-between items-center bg-[var(--bg-secondary)] p-2 rounded-2xl border border-[var(--border-light)]">
+                <div className="flex gap-2 overflow-x-auto w-full md:w-auto p-1 custom-scrollbar">
+                    {categories.map(cat => (
+                        <button
+                            key={cat}
+                            type="button"
+                            onClick={() => setCategoryFilter(cat)}
+                            className={`px-5 py-2.5 rounded-xl text-sm font-semibold capitalize transition-all whitespace-nowrap
+                                ${categoryFilter === cat
+                                    ? 'bg-purple-600 text-white shadow-md'
+                                    : 'text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]'}`}
+                        >
+                            {cat}
+                        </button>
+                    ))}
+                </div>
+                <div className="relative w-full md:w-72 px-1 pb-1 md:pb-0 md:px-0">
+                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)]" size={18} />
                     <input
                         type="text"
                         placeholder="Search gear..."
-                        className="w-full bg-[var(--bg-secondary)] border border-[var(--border-light)] rounded-lg px-3 py-2 text-sm text-[var(--text-primary)] focus:border-orange-500 outline-none placeholder-[var(--text-tertiary)]"
+                        className="w-full bg-[var(--surface-base)] border border-[var(--border-light)] rounded-xl pl-11 pr-4 py-2.5 text-sm text-[var(--text-primary)] placeholder-[var(--text-tertiary)] focus:outline-none focus:border-purple-500 focus:ring-4 focus:ring-purple-500/10 transition-all"
                         value={searchTerm}
                         onChange={e => setSearchTerm(e.target.value)}
                     />
-
-                    {loading ? (
-                        <div className="text-xs text-[var(--text-tertiary)] text-center py-4">Loading inventory...</div>
-                    ) : (
-                        <div className="space-y-2">
-                            {filteredInventory.map(item => {
-                                const conflict = conflictMap.get(item.id);
-                                const isAdded = selectedEquipment.some(e => e.itemId === item.id);
-                                const statusCfg = EQUIPMENT_STATUS_CONFIG[item.status];
-                                const hardBlocked = isStatusBlocked(item.status);
-                                const dateConflict = !hardBlocked && (conflict?.hasConflict ?? false);
-
-                                return (
-                                    <div
-                                        key={item.id}
-                                        className={`flex items-start justify-between p-2.5 rounded-lg border transition-colors
-                                            ${isAdded
-                                                ? 'border-orange-500/30 bg-orange-50 dark:bg-orange-500/5'
-                                                : hardBlocked
-                                                    ? 'border-red-200 bg-red-50/50 dark:border-red-500/20 dark:bg-red-500/5 opacity-75'
-                                                    : dateConflict
-                                                        ? 'border-amber-300 bg-amber-50/60 dark:border-amber-500/30 dark:bg-amber-500/5'
-                                                        : 'border-[var(--border-light)] bg-[var(--surface-base)] hover:bg-[var(--surface-hover)]'}`}
-                                    >
-                                        <div className="flex items-start gap-2 flex-1 min-w-0">
-                                            <div className="p-1.5 bg-[var(--bg-secondary)] rounded-md text-[var(--text-tertiary)] mt-0.5 shrink-0">
-                                                {getIcon(item.category)}
-                                            </div>
-                                            <div className="flex-1 min-w-0">
-                                                <div className="flex items-center gap-1.5 flex-wrap">
-                                                    <p className="text-sm font-medium text-[var(--text-primary)] truncate">{item.name}</p>
-                                                    {/* Status badge */}
-                                                    <span className={`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded border ${statusCfg.badgeClass}`}>
-                                                        {statusCfg.label}
-                                                    </span>
-                                                </div>
-                                                <p className="text-xs text-[var(--text-secondary)]">
-                                                    {item.serialNumber ? `#${item.serialNumber}` : 'No S/N'}
-                                                </p>
-                                                {/* Hard block message */}
-                                                {hardBlocked && (
-                                                    <p className="text-[10px] text-red-600 dark:text-red-400 mt-0.5 flex items-center gap-1">
-                                                        <XCircle size={10} className="shrink-0" />
-                                                        {conflict?.statusBlockReason}
-                                                    </p>
-                                                )}
-                                                {/* Date conflict message */}
-                                                {dateConflict && !hardBlocked && (
-                                                    <p className="text-[10px] text-amber-700 dark:text-amber-400 mt-0.5 flex items-center gap-1">
-                                                        <AlertTriangle size={10} className="shrink-0" />
-                                                        Already reserved on this date
-                                                        {conflict!.conflicts[0] && ` — ${conflict!.conflicts[0].clientName}`}
-                                                    </p>
-                                                )}
-                                            </div>
-                                        </div>
-
-                                        {/* Add button */}
-                                        <button
-                                            type="button"
-                                            disabled={isAdded || hardBlocked}
-                                            onClick={() => handleAddItem(item)}
-                                            className={`p-1.5 rounded-md transition-colors ml-2 shrink-0 mt-0.5
-                                                ${isAdded
-                                                    ? 'text-orange-600 cursor-default'
-                                                    : hardBlocked
-                                                        ? 'text-gray-300 dark:text-gray-600 cursor-not-allowed'
-                                                        : dateConflict
-                                                            ? 'text-amber-600 hover:bg-amber-100 dark:hover:bg-amber-500/10'
-                                                            : 'text-[var(--text-tertiary)] hover:bg-[var(--accent-primary)] hover:text-white'}`}
-                                            title={
-                                                isAdded ? 'Already added'
-                                                    : hardBlocked ? conflict?.statusBlockReason ?? 'Cannot assign'
-                                                        : dateConflict ? 'Add anyway (conflict exists)'
-                                                            : 'Add to booking'
-                                            }
-                                        >
-                                            {isAdded ? 'Added' : hardBlocked ? <XCircle size={16} /> : <Plus size={16} />}
-                                        </button>
-                                    </div>
-                                );
-                            })}
-
-                            {filteredInventory.length === 0 && (
-                                <div className="text-center py-8 text-[var(--text-tertiary)] text-xs">
-                                    No equipment found. Add gear in the Inventory page.
-                                </div>
-                            )}
-                        </div>
-                    )}
-                </div>
-
-                {/* ── Selected equipment list ─────────────────────────── */}
-                <div className="space-y-2 h-64 overflow-y-auto pl-1">
-                    <p className="text-xs font-medium text-[var(--text-tertiary)] uppercase tracking-wider mb-2">
-                        Selected ({selectedEquipment.length})
-                    </p>
-
-                    {selectedEquipment.length === 0 ? (
-                        <div className="h-[calc(100%-2rem)] flex flex-col items-center justify-center text-[var(--text-tertiary)] border-2 border-dashed border-[var(--border-light)] rounded-xl">
-                            <Camera size={24} className="mb-2 opacity-50" />
-                            <p className="text-xs">No equipment selected</p>
-                        </div>
-                    ) : (
-                        <div className="space-y-2">
-                            {selectedEquipment.map(item => {
-                                const conflict = conflictMap.get(item.itemId);
-                                const dateConflict = conflict?.hasConflict ?? false;
-
-                                return (
-                                    <div
-                                        key={item.itemId}
-                                        className={`flex items-center justify-between p-2 rounded-lg border
-                                            ${dateConflict
-                                                ? 'border-amber-300 bg-amber-50/60 dark:border-amber-500/30 dark:bg-amber-500/5'
-                                                : 'bg-[var(--bg-secondary)] border-[var(--border-light)]'}`}
-                                    >
-                                        <div className="flex-1 min-w-0">
-                                            <div className="flex items-center gap-1.5">
-                                                <p className="text-sm font-medium text-[var(--text-primary)] truncate">{item.name}</p>
-                                                {dateConflict && (
-                                                    <AlertTriangle size={12} className="text-amber-500 shrink-0" />
-                                                )}
-                                            </div>
-                                            <p className="text-xs text-[var(--text-secondary)]">
-                                                ₹{(item.rentalRate / 100).toFixed(0)} × {item.qty}
-                                            </p>
-                                            {dateConflict && (
-                                                <p className="text-[10px] text-amber-700 dark:text-amber-400">
-                                                    Conflict: reserved for {conflict!.conflicts[0]?.clientName}
-                                                </p>
-                                            )}
-                                        </div>
-
-                                        <div className="flex items-center gap-2 ml-2 shrink-0">
-                                            <div className="flex items-center bg-[var(--surface-base)] rounded-md border border-[var(--border-light)]">
-                                                <button type="button" onClick={() => handleUpdateQty(item.itemId, -1)} className="px-2 py-1 text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] text-xs border-r border-[var(--border-light)]">-</button>
-                                                <span className="px-2 text-xs text-[var(--text-primary)] w-6 text-center">{item.qty}</span>
-                                                <button type="button" onClick={() => handleUpdateQty(item.itemId, 1)} className="px-2 py-1 text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] text-xs border-l border-[var(--border-light)]">+</button>
-                                            </div>
-                                            <button type="button" onClick={() => handleRemoveItem(item.itemId)} className="text-red-400 hover:text-red-500 p-1">
-                                                <Trash2 size={14} />
-                                            </button>
-                                        </div>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    )}
                 </div>
             </div>
 
-            {/* ── Summary banners ─────────────────────────────────────── */}
-            {conflictedCount > 0 && (
-                <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 dark:bg-amber-500/10 dark:border-amber-500/20 rounded-lg">
-                    <AlertTriangle size={16} className="text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
-                    <p className="text-xs text-amber-800 dark:text-amber-300">
-                        <strong>{conflictedCount} item{conflictedCount > 1 ? 's' : ''}</strong> in your selection
-                        {conflictedCount > 1 ? ' are' : ' is'} already reserved on overlapping dates.
-                        You can still save — confirm with the client or remove the conflicting gear.
-                    </p>
-                </div>
-            )}
+            {/* Gear Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 max-h-[450px] overflow-y-auto p-1 custom-scrollbar">
+                {loading ? (
+                    <div className="col-span-full py-12 flex justify-center text-purple-500 font-medium">Loading gear...</div>
+                ) : filteredInventory.length === 0 ? (
+                    <div className="col-span-full py-12 text-center text-[var(--text-tertiary)] text-sm">No equipment found matching criteria.</div>
+                ) : (
+                    <AnimatePresence>
+                        {filteredInventory.map(item => {
+                            const conflict = conflictMap.get(item.id);
+                            const isSelected = selectedEquipment.some(e => e.itemId === item.id);
+                            const statusCfg = EQUIPMENT_STATUS_CONFIG[item.status];
+                            const hardBlocked = isStatusBlocked(item.status);
+                            const dateConflict = !hardBlocked && (conflict?.hasConflict ?? false);
 
-            {conflictedCount === 0 && selectedEquipment.length > 0 && (
-                <div className="flex items-center gap-2 p-3 bg-emerald-50 border border-emerald-200 dark:bg-emerald-500/10 dark:border-emerald-500/20 rounded-lg">
-                    <CheckCircle size={14} className="text-emerald-600 dark:text-emerald-400 shrink-0" />
-                    <p className="text-xs text-emerald-700 dark:text-emerald-300">
-                        All selected equipment is available on{' '}
-                        {eventDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}.
-                    </p>
-                </div>
-            )}
+                            return (
+                                <motion.div
+                                    layout
+                                    initial={{ opacity: 0, scale: 0.95 }}
+                                    animate={{ opacity: 1, scale: 1 }}
+                                    exit={{ opacity: 0, scale: 0.95 }}
+                                    key={item.id}
+                                    onClick={() => !hardBlocked && handleAddItem(item)}
+                                    className={`relative flex flex-col p-5 rounded-2xl border cursor-pointer transition-all duration-200 group
+                                        ${isSelected 
+                                            ? 'bg-purple-50 dark:bg-purple-500/5 border-purple-300 dark:border-purple-500/30 shadow-sm ring-1 ring-purple-500/20' 
+                                            : hardBlocked 
+                                                ? 'bg-[var(--bg-secondary)] border-[var(--border-light)] opacity-50 cursor-not-allowed'
+                                                : dateConflict
+                                                    ? 'bg-amber-50 dark:bg-amber-500/5 border-amber-200 dark:border-amber-500/20'
+                                                    : 'bg-[var(--surface-base)] border-[var(--border-light)] hover:shadow-md hover:border-purple-200 dark:hover:border-purple-500/30'
+                                        }
+                                    `}
+                                >
+                                    <div className="flex items-start gap-4 mb-4">
+                                        <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0
+                                            ${isSelected ? 'bg-purple-100 dark:bg-purple-500/20' : 'bg-slate-100 dark:bg-slate-800'}`}>
+                                            {getIcon(item.category)}
+                                        </div>
+                                        <div className="flex-1 min-w-0 pt-1">
+                                            <h4 className={`text-base font-bold truncate ${isSelected ? 'text-purple-700 dark:text-purple-300' : 'text-[var(--text-primary)]'}`}>
+                                                {item.name}
+                                            </h4>
+                                            <p className="text-sm text-[var(--text-secondary)] truncate font-medium">
+                                                {item.serialNumber ? `#${item.serialNumber}` : 'No S/N'}
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    <div className="mt-auto flex flex-col gap-3">
+                                        <div className="flex justify-between items-center">
+                                            <span className={`text-xs font-bold uppercase tracking-wider px-2.5 py-1 rounded-md border ${statusCfg.badgeClass}`}>
+                                                {statusCfg.label}
+                                            </span>
+                                            <span className="text-sm font-bold text-[var(--text-primary)]">
+                                                ₹{(item.dailyRentalRate / 100).toFixed(0)}<span className="text-[var(--text-tertiary)] font-medium">/d</span>
+                                            </span>
+                                        </div>
+
+                                        {hardBlocked && (
+                                            <div className="text-xs text-red-500 mt-1 flex items-start gap-1.5 bg-red-50 dark:bg-red-500/10 p-2 rounded-lg">
+                                                <XCircle size={14} className="shrink-0 mt-0.5" />
+                                                <span className="font-medium leading-tight">{conflict?.statusBlockReason}</span>
+                                            </div>
+                                        )}
+                                        {dateConflict && !hardBlocked && (
+                                            <div className="text-xs text-amber-600 dark:text-amber-400 mt-1 flex items-start gap-1.5 bg-amber-50 dark:bg-amber-500/10 p-2 rounded-lg">
+                                                <AlertTriangle size={14} className="shrink-0 mt-0.5" />
+                                                <span className="font-medium leading-tight">Reserved {conflict!.conflicts[0] && `for ${conflict!.conflicts[0].clientName}`}</span>
+                                            </div>
+                                        )}
+
+                                        <button
+                                            type="button"
+                                            disabled={hardBlocked}
+                                            className={`w-full mt-2 py-2.5 rounded-xl font-bold flex items-center justify-center gap-2 transition-all
+                                                ${isSelected
+                                                    ? 'bg-purple-100 text-purple-700 dark:bg-purple-500/20 dark:text-purple-300 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/20 dark:hover:text-red-400'
+                                                    : hardBlocked
+                                                        ? 'bg-[var(--bg-secondary)] text-[var(--text-tertiary)]'
+                                                        : 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+                                                }
+                                            `}
+                                        >
+                                            {isSelected ? (
+                                                <>
+                                                    <Check size={18} className="group-hover:hidden" />
+                                                    <span className="group-hover:hidden">Added</span>
+                                                    <XCircle size={18} className="hidden group-hover:block" />
+                                                    <span className="hidden group-hover:block">Remove</span>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <Plus size={18} /> Add Gear
+                                                </>
+                                            )}
+                                        </button>
+                                    </div>
+                                </motion.div>
+                            );
+                        })}
+                    </AnimatePresence>
+                )}
+            </div>
         </div>
     );
 };

@@ -1,9 +1,9 @@
-﻿import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth.ts";
 import {
     LogOut, Home, Calendar, Briefcase, Settings, Package, Trash2, Wallet,
     Users, BarChart3, Sparkles, MessageSquare, LucideIcon, Image as ImageIcon,
-    Star, 
+    Star, Clock, Trophy,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import ThemeToggle from "../ui/ThemeToggle";
@@ -71,6 +71,8 @@ export const Sidebar = ({ onCloseMobile }: { onCloseMobile?: () => void }) => {
                 )}
 
                 <SidebarItem icon={Briefcase} label="Bookings" path="/bookings" isActive={currentPath.startsWith('/bookings')} onClick={onCloseMobile} />
+                <SidebarItem icon={Clock} label="Upcoming Shoots" path="/upcoming-shoots" isActive={currentPath === '/upcoming-shoots'} onClick={onCloseMobile} />
+                <SidebarItem icon={Trophy} label="Completed Shoots" path="/completed-shoots" isActive={currentPath === '/completed-shoots'} onClick={onCloseMobile} />
                 <SidebarItem icon={Calendar} label="Calendar" path="/calendar" isActive={currentPath === '/calendar'} onClick={onCloseMobile} />
 
                 {/* STUDIO */}

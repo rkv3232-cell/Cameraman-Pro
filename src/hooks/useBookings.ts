@@ -158,6 +158,7 @@ export const useBookings = () => {
                 // Meta
                 notes: data.notes || "",
                 status: data.status || 'pending',
+                shootStatus: 'upcoming',
 
                 // Audit
                 createdBy: user.uid,
@@ -223,6 +224,24 @@ export const useBookings = () => {
         }
     };
 
+    // MARK AS COMPLETED
+    const markAsCompleted = async (bookingId: string) => {
+        if (!studioId) return;
+        try {
+            const bookingRef = doc(db, "bookings", bookingId);
+            await updateDoc(bookingRef, {
+                shootStatus: 'completed',
+                completedAt: serverTimestamp(),
+                updatedAt: serverTimestamp()
+            });
+            toast.success("Shoot marked as completed! 🎉");
+        } catch (err: any) {
+            console.error("Error marking shoot as completed:", err);
+            toast.error("Failed to update shoot status");
+            throw err;
+        }
+    };
+
     // DELETE (Soft Delete)
     const softDeleteBooking = async (booking: Booking) => {
         if (!studioId || !user) return;
@@ -264,6 +283,7 @@ export const useBookings = () => {
         error,
         addBooking,
         updateBooking,
-        softDeleteBooking
+        softDeleteBooking,
+        markAsCompleted
     };
 };
