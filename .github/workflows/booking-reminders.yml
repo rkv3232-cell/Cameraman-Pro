@@ -1,0 +1,29 @@
+name: Booking Reminders
+
+on:
+  schedule:
+    # Runs at minute 5 of every hour (e.g., 07:05, 08:05 IST)
+    - cron: '5 * * * *'
+  workflow_dispatch: # Allows manual trigger for testing
+
+jobs:
+  send-notifications:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: 🟢 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: 📦 Install Dependencies
+        run: |
+          npm install firebase-admin date-fns
+
+      - name: 🔔 Run Reminders Script
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: node scripts/sendReminders.js
