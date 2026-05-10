@@ -5,7 +5,7 @@ import { Button } from "../ui/button";
 import toast from "react-hot-toast";
 import { Bell, Save } from "lucide-react";
 
-export const NotificationSettings = ({ studioId, user }: { studioId: string | null, user: any }) => {
+export const NotificationSettings = ({ studioId }: { studioId: string | null }) => {
     const [loading, setLoading] = useState(false);
     const [settings, setSettings] = useState({
         remindersEnabled: true,

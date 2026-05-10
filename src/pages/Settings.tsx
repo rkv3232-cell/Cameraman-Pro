@@ -143,7 +143,7 @@ export const Settings = () => {
             </div>
 
             {/* Notification Settings Section */}
-            <NotificationSettings studioId={studioId} user={user} />
+            <NotificationSettings studioId={studioId} />
 
             {/* Team Collaboration Section */}
             <div className="bg-[var(--surface-base)] rounded-xl border border-[var(--border-light)] overflow-hidden shadow-sm">
