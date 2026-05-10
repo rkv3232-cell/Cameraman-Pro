@@ -27,14 +27,12 @@ export const Layout = () => {
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const { permission, requestPermission } = useNotifications();
 
-    // Show a prompt for notification permission if not yet decided
+    // Auto-request OneSignal notification permission after 3 seconds
     useEffect(() => {
         if (permission === 'default') {
             const timer = setTimeout(() => {
-                if (window.confirm("Allow Cameraman Pro notifications to receive booking reminders?")) {
-                    requestPermission();
-                }
-            }, 3000); // Wait 3 seconds before asking
+                requestPermission();
+            }, 3000);
             return () => clearTimeout(timer);
         }
     }, [permission, requestPermission]);

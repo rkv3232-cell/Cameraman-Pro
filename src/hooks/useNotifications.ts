@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { collection, doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '../lib/firebase';
 import toast from 'react-hot-toast';
@@ -7,6 +7,7 @@ import toast from 'react-hot-toast';
 declare global {
   interface Window {
     OneSignalDeferred: any[];
+    OneSignal: any;
   }
 }
 
@@ -14,58 +15,18 @@ export const useNotifications = () => {
     const [token, setToken] = useState<string | null>(null);
     const [permission, setPermission] = useState<NotificationPermission>('default');
 
+    // Read initial permission state from browser
     useEffect(() => {
-        if (typeof window !== 'undefined') {
-            window.OneSignalDeferred = window.OneSignalDeferred || [];
-            window.OneSignalDeferred.push(async (OneSignal: any) => {
-                const perm = await OneSignal.Notifications.permission ? 'granted' : 'default';
-                setPermission(perm as NotificationPermission);
-            });
+        if (typeof window !== 'undefined' && 'Notification' in window) {
+            setPermission(Notification.permission);
         }
     }, []);
 
-    const requestPermission = async () => {
-        return new Promise<string | null>((resolve) => {
-            window.OneSignalDeferred.push(async (OneSignal: any) => {
-                try {
-                    console.log("Requesting OneSignal Permission...");
-                    await OneSignal.Notifications.requestPermission();
-                    
-                    const isPushEnabled = OneSignal.Notifications.permission;
-                    
-                    if (isPushEnabled) {
-                        const subscriptionId = OneSignal.User.PushSubscription.id;
-                        if (subscriptionId) {
-                            setToken(subscriptionId);
-                            setPermission('granted');
-                            await saveTokenToFirestore(subscriptionId);
-                            toast.success('✅ Notifications enabled via OneSignal');
-                            resolve(subscriptionId);
-                        } else {
-                            console.warn("OneSignal initialized but no subscription ID yet.");
-                            resolve(null);
-                        }
-                    } else {
-                        toast.error('Notification permission denied');
-                        resolve(null);
-                    }
-                } catch (error) {
-                    console.error('OneSignal Error:', error);
-                    toast.error('Notification setup failed');
-                    resolve(null);
-                }
-            });
-        });
-    };
-
-    const saveTokenToFirestore = async (subscriptionId: string) => {
+    const saveTokenToFirestore = useCallback(async (subscriptionId: string) => {
         const user = auth.currentUser;
         if (!user) return;
-
         try {
-            // Store OneSignal Subscription ID in the same collection
-            // We use a prefix to distinguish from old FCM tokens
-            const tokenRef = doc(collection(db, 'notificationTokens'), user.uid + '_os_' + subscriptionId.substring(0, 8));
+            const tokenRef = doc(collection(db, 'notificationTokens'), user.uid + '_os');
             await setDoc(tokenRef, {
                 userId: user.uid,
                 token: subscriptionId,
@@ -73,17 +34,51 @@ export const useNotifications = () => {
                 device: navigator.userAgent,
                 createdAt: serverTimestamp(),
             });
-
-            // Associate the OneSignal user with our Firebase UID
-            window.OneSignalDeferred.push(async (OneSignal: any) => {
-                await OneSignal.login(user.uid);
-                console.log("OneSignal User Linked:", user.uid);
-            });
-
+            // Link OneSignal user to Firebase UID
+            if (window.OneSignal) {
+                await window.OneSignal.login(user.uid);
+            }
         } catch (error) {
-            console.error('Error saving OneSignal token to Firestore:', error);
+            console.error('Error saving token:', error);
         }
-    };
+    }, []);
+
+    const requestPermission = useCallback(async () => {
+        try {
+            // Wait for OneSignal to be ready
+            if (!window.OneSignal) {
+                // Fallback: push to deferred queue
+                window.OneSignalDeferred = window.OneSignalDeferred || [];
+                window.OneSignalDeferred.push(async (OneSignal: any) => {
+                    await OneSignal.Notifications.requestPermission();
+                    if (OneSignal.Notifications.permission) {
+                        const id = OneSignal.User.PushSubscription.id;
+                        setPermission('granted');
+                        setToken(id);
+                        await saveTokenToFirestore(id);
+                        toast.success('✅ Notifications enabled!');
+                    }
+                });
+                return;
+            }
+
+            // OneSignal already loaded
+            await window.OneSignal.Notifications.requestPermission();
+            
+            if (window.OneSignal.Notifications.permission) {
+                const id = window.OneSignal.User.PushSubscription.id;
+                setPermission('granted');
+                setToken(id);
+                if (id) await saveTokenToFirestore(id);
+                toast.success('✅ Notifications enabled!');
+            } else {
+                setPermission('denied');
+                toast.error('Notification permission denied');
+            }
+        } catch (error) {
+            console.error('Notification Error:', error);
+        }
+    }, [saveTokenToFirestore]);
 
     return { token, permission, requestPermission };
 };
