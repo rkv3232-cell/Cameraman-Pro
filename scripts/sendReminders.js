@@ -35,26 +35,39 @@ async function sendReminders() {
   const istOffset = 5.5 * 60 * 60 * 1000;
   const istNow = new Date(now.getTime() + istOffset);
   
+  // Current time as HH:mm (e.g. "16:40")
+  const currentTimeStr = format(istNow, "HH:mm");
+  // Also check HH:00 format for backward compatibility
   const currentHourStr = format(istNow, "HH:00");
   const todayStr = format(istNow, 'yyyy-MM-dd');
 
-  console.log(`⏰ Current Time (IST): ${format(istNow, "HH:mm")}`);
+  console.log(`⏰ Current Time (IST): ${currentTimeStr}`);
   console.log(`📅 Search Date: ${todayStr}`);
-  console.log(`🔔 Target Hour: ${currentHourStr}`);
+  console.log(`🔔 Matching timings: ${currentTimeStr} or ${currentHourStr}`);
 
-  // 2. Fetch studios that have reminders scheduled for this hour
+  // 2. Fetch studios that have reminders scheduled for this time
   const settingsSnapshot = await db.collection("studioSettings").get();
   const activeStudios = [];
   
   settingsSnapshot.forEach(doc => {
       const data = doc.data();
-      if (data.remindersEnabled && data.timings && data.timings.includes(currentHourStr)) {
-          activeStudios.push({ studioId: doc.id, ...data });
+      if (data.remindersEnabled && data.timings) {
+          // Match if any saved timing is within 5 minutes of current time
+          const currentTotalMins = istNow.getUTCHours() * 60 + istNow.getUTCMinutes();
+          const isMatch = data.timings.some(t => {
+              const [h, m] = t.split(':').map(Number);
+              const savedTotalMins = h * 60 + (m || 0);
+              return Math.abs(currentTotalMins - savedTotalMins) <= 5;
+          });
+          if (isMatch) {
+              activeStudios.push({ studioId: doc.id, ...data });
+              console.log(`  ✅ Studio ${doc.id} matched! Timings: ${data.timings.join(', ')}`);
+          }
       }
   });
 
   if (activeStudios.length === 0) {
-      console.log("ℹ️ No studios scheduled for reminders at this hour.");
+      console.log("ℹ️ No studios scheduled for reminders at this time.");
       return;
   }
 
