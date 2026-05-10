@@ -1,4 +1,4 @@
-﻿import { useState } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useBookings } from "../hooks/useBookings";
 import { BookingModal } from "../components/bookings/BookingModal";
@@ -27,14 +27,37 @@ export const Bookings = () => {
     // Filter Logic
     const filteredBookings = bookings.filter(b => {
         const date = b.eventDate.toDate();
+        const mainDateStr = format(date, 'yyyy-MM-dd');
         const formattedDate = format(date, 'MMM dd yyyy').toLowerCase();
-        const matchesSearch =
-            b.clientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            b.clientPhone.includes(searchTerm) ||
-            b.venue.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            formattedDate.includes(searchTerm.toLowerCase());
 
-        const matchesDate = !dateFilter || format(date, 'yyyy-MM-dd') === dateFilter;
+        // Check if any sub-event date matches the selected date filter
+        const subEventDates = b.subEvents?.map(se => se.date) || [];
+        const matchesDate = !dateFilter || mainDateStr === dateFilter || subEventDates.includes(dateFilter);
+
+        // Normalize search term for flexible date matching (e.g., 10/5 or 10-05)
+        const search = searchTerm.toLowerCase().trim();
+        const normalizedSearch = search.replace(/\//g, '-');
+
+        // Check if search term matches sub-events
+        const subEventMatchesSearch = b.subEvents?.some(se => {
+            const seTitle = se.title.toLowerCase();
+            const seDate = se.date; // yyyy-mm-dd
+            const seDateDisplay = format(new Date(se.date), 'dd/MM/yyyy');
+            const seDateShort = format(new Date(se.date), 'dd/MM');
+            
+            return seTitle.includes(search) || 
+                   seDate.includes(normalizedSearch) || 
+                   seDateDisplay.includes(search) || 
+                   seDateShort.includes(search);
+        });
+
+        const matchesSearch =
+            !search ||
+            b.clientName.toLowerCase().includes(search) ||
+            b.clientPhone.includes(search) ||
+            b.venue.toLowerCase().includes(search) ||
+            formattedDate.includes(search) ||
+            subEventMatchesSearch;
 
         return matchesSearch && matchesDate;
     });

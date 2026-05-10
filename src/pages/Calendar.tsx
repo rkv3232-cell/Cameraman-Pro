@@ -43,7 +43,8 @@ function getEventHex(eventType: string): string {
 // For sub-event days, returns the sub-event's title so color matches the ceremony.
 function getEffectiveType(booking: Booking, day: Date): string {
     if (booking.subEvents && booking.subEvents.length > 0) {
-        const subEvent = booking.subEvents.find(se => isSameDay(new Date(se.date), day));
+        const dayStr = format(day, 'yyyy-MM-dd');
+        const subEvent = booking.subEvents.find(se => se.date === dayStr);
         if (subEvent) return subEvent.title;   // e.g. "Haldi", "Mehndi"
     }
     return booking.eventType;
@@ -55,7 +56,8 @@ function getBookingsForDay(bookings: Booking[], day: Date): Booking[] {
     return bookings.filter(b => {
         if (b.status !== 'confirmed' && b.status !== 'pending') return false;
         const isMainDay = isSameDay(b.eventDate.toDate(), day);
-        const isSubDay = b.subEvents?.some(se => isSameDay(new Date(se.date), day));
+        const dayStr = format(day, 'yyyy-MM-dd');
+        const isSubDay = b.subEvents?.some(se => se.date === dayStr);
         return isMainDay || isSubDay;
     });
 }
@@ -243,10 +245,11 @@ export const Calendar = () => {
 
                             // Resolve the time to display (sub-event time takes priority)
                             const displayTime = (() => {
-                                const subEvent = booking.subEvents?.find(se =>
-                                    isSameDay(new Date(se.date), selectedDate!)
-                                );
-                                if (subEvent) return subEvent.time;
+                                if (selectedDate) {
+                                    const dayStr = format(selectedDate, 'yyyy-MM-dd');
+                                    const subEvent = booking.subEvents?.find(se => se.date === dayStr);
+                                    if (subEvent) return subEvent.time;
+                                }
                                 return format(booking.eventDate.toDate(), 'h:mm a');
                             })();
 
