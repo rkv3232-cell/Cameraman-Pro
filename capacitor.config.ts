@@ -6,7 +6,8 @@ const config: CapacitorConfig = {
   webDir: 'dist',
   server: {
     url: 'https://cameraman-pro-2aa2b.web.app',
-    cleartext: true
+    cleartext: true,
+    allowNavigation: ['cameraman-pro-2aa2b.web.app']
   },
   plugins: {
     FirebaseAuthentication: {
