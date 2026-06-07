@@ -1,0 +1,29 @@
+name: 📸 Booking Reminder Scheduler
+
+on:
+  schedule:
+    # Runs every 15 minutes (UTC) — script converts to IST internally
+    - cron: '*/15 * * * *'
+  workflow_dispatch: # Manual trigger for testing
+
+jobs:
+  send-reminders:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: 🟢 Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: 📦 Install Dependencies
+        run: npm install firebase-admin
+
+      - name: 🔔 Run Reminder Scheduler
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: node scripts/reminderScheduler.js
