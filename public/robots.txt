@@ -1,0 +1,33 @@
+User-agent: *
+Allow: /
+Allow: /gallery
+Allow: /about
+Allow: /contact
+Allow: /enquiry
+Allow: /book-now
+Allow: /track
+
+# Disallow protected and client portal areas
+Disallow: /dashboard
+Disallow: /bookings/
+Disallow: /calendar
+Disallow: /inventory/
+Disallow: /trash
+Disallow: /settings
+Disallow: /expenses/
+Disallow: /team
+Disallow: /analytics
+Disallow: /ai-tools
+Disallow: /upcoming-shoots
+Disallow: /completed-shoots
+Disallow: /studio/
+Disallow: /crew/
+Disallow: /identity
+Disallow: /enquiries
+Disallow: /reviews
+Disallow: /studio-gallery
+Disallow: /client/
+Disallow: /select/
+Disallow: /s/
+
+Sitemap: https://cameraman-pro-2aa2b.web.app/sitemap.xml

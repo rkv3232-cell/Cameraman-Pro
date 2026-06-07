@@ -16,6 +16,7 @@ import { db } from "../lib/firebase";
 import { useAuth } from "./useAuth";
 import { Booking, TrashItem } from "../types";
 import toast from "react-hot-toast";
+import { normalizeFirestoreDate } from "../utils/date";
 
 /**
  * REUSABLE HELPER: Sanitize Data for Firestore
@@ -138,7 +139,11 @@ export const useBookings = () => {
                 // Event Details
                 venue: data.venue || "",
                 eventType: data.eventType || "other",
-                eventDate: data.eventDate || Timestamp.now(),
+                eventDate: (() => {
+                    // Safely convert any date format (string, Date, or Timestamp) to Firestore Timestamp
+                    const normalized = normalizeFirestoreDate(data.eventDate);
+                    return normalized ? Timestamp.fromDate(normalized) : Timestamp.now();
+                })(),
                 subEvents: Array.isArray(data.subEvents) ? data.subEvents : [],
 
                 // Resources
@@ -205,9 +210,16 @@ export const useBookings = () => {
             const bookingRef = doc(db, "bookings", bookingId);
 
             // CLEANUP: Remove undefined keys before update
+            // Also normalize eventDate to Firestore Timestamp if provided
             const cleanData = Object.entries(data).reduce((acc, [key, value]) => {
                 if (value !== undefined) {
-                    acc[key] = value;
+                    if (key === 'eventDate' && value) {
+                        // Safely convert any date format to Firestore Timestamp
+                        const normalized = normalizeFirestoreDate(value);
+                        acc[key] = normalized ? Timestamp.fromDate(normalized) : value;
+                    } else {
+                        acc[key] = value;
+                    }
                 }
                 return acc;
             }, {} as any);

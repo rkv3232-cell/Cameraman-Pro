@@ -13,7 +13,7 @@ interface RoleConfig {
 }
 
 const ROLES: RoleConfig[] = [
-    { key: 'mainPhotographer', label: 'Main Photographer', icon: Camera, color: 'text-purple-500', role: 'main_photographer' },
+    { key: 'mainPhotographer', label: 'Main Photographer', icon: Camera, color: 'text-purple-500', role: 'lead_photographer' },
     { key: 'droneOperator', label: 'Drone Operator', icon: Wind, color: 'text-sky-500', role: 'drone_operator' },
     { key: 'editor', label: 'Editor', icon: Film, color: 'text-amber-500', role: 'editor' },
 ];

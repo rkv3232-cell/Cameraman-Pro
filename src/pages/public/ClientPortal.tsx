@@ -6,10 +6,20 @@ import { Booking, ClientPortalImage } from '../../types';
 import { formatMoney } from '../../utils/currency';
 import { Camera, CheckCircle2, Lock, Download, Image as ImageIcon, Send, LogOut } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { useAuth } from '../../hooks/useAuth';
+
+import { useSEO } from '../../hooks/useSEO';
 
 export const ClientPortal = () => {
+    useSEO({
+        title: "Client Portal | Cameraman Pro",
+        description: "Securely review billing summaries, pay online, select album photographs, and download completed galleries directly.",
+        keywords: "client portal, photographer client hub, download photo gallery, photo album selection",
+    });
+
     const { bookingId } = useParams();
     const navigate = useNavigate();
+    const { user, userProfile, loading: authLoading } = useAuth();
     const [booking, setBooking] = useState<Booking | null>(null);
     const [loading, setLoading] = useState(true);
     const [images, setImages] = useState<ClientPortalImage[]>([]);
@@ -17,9 +27,10 @@ export const ClientPortal = () => {
 
     // Auth Check
     useEffect(() => {
+        if (authLoading) return;
+
         const fetchBookingAndAuth = async () => {
-            const pin = sessionStorage.getItem('client_portal_pin');
-            if (!pin || !bookingId) {
+            if (!bookingId) {
                 navigate('/client/login');
                 return;
             }
@@ -30,20 +41,21 @@ export const ClientPortal = () => {
 
                 if (docSnap.exists()) {
                     const data = { id: docSnap.id, ...docSnap.data() } as Booking;
+                    const pin = sessionStorage.getItem('client_portal_pin');
+                    
+                    // Allow access if PIN matches, or if authenticated staff/owner, or if logged-in client with matching email
+                    const isStaff = userProfile && ['owner', 'admin', 'manager', 'member', 'accountant', 'coordinator'].includes(userProfile.role);
+                    const isMatchingClient = user && data.clientEmail && user.email === data.clientEmail;
 
-                    // Validate PIN
-                    if (data.clientPortal?.pin !== pin) {
-                        toast.error("Invalid secure access PIN");
+                    if (pin === data.clientPortal?.pin || isStaff || isMatchingClient) {
+                        setBooking(data);
+                        if (data.clientPortal?.selectionImages) {
+                            setImages(data.clientPortal.selectionImages);
+                        }
+                    } else {
+                        toast.error("Access denied. Please enter access PIN or log in with an authorized account.");
                         sessionStorage.removeItem('client_portal_pin');
                         navigate('/client/login');
-                        return;
-                    }
-
-                    setBooking(data);
-
-                    // Load Images if any
-                    if (data.clientPortal?.selectionImages) {
-                        setImages(data.clientPortal.selectionImages);
                     }
                 } else {
                     toast.error("Booking not found");
@@ -58,7 +70,7 @@ export const ClientPortal = () => {
         };
 
         fetchBookingAndAuth();
-    }, [bookingId, navigate]);
+    }, [bookingId, navigate, user, userProfile, authLoading]);
 
     const handleLogout = () => {
         sessionStorage.removeItem('client_portal_pin');

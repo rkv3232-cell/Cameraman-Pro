@@ -2,9 +2,42 @@ import { useContext } from 'react';
 import { MapPin, Phone } from 'lucide-react';
 import LanguageContext from '../../context/LanguageContext';
 import { text } from '../../utils/text';
+import { useSEO } from '../../hooks/useSEO';
+import { useStructuredData } from '../../hooks/useStructuredData';
 
 export const Contact = () => {
     const { lang } = useContext(LanguageContext);
+    const hi = lang === 'hi';
+
+    useSEO({
+        title: hi ? "संपर्क करें | Cameraman Pro" : "Contact Us | Cameraman Pro",
+        description: hi 
+          ? "Cameraman Pro से संपर्क करें। फोन, व्हाट्सएप, या गाजीपुर में हमारे स्टूडियो में पधारकर अपनी बुकिंग, इनक्वायरी, या सपोर्ट के लिए सहायता प्राप्त करें।"
+          : "Get in touch with Cameraman Pro. Reach out via phone, WhatsApp, or visit our studio in Dullahapur, Ghazipur, Uttar Pradesh for bookings and support.",
+        keywords: "contact cameraman pro, photography studio ghazipur, wedding photographer ghazipur, chandan kumar verma",
+    });
+
+    useStructuredData({
+        "@context": "https://schema.org",
+        "@type": "ContactPage",
+        "name": "Contact Cameraman Pro",
+        "description": "Get in touch with Cameraman Pro via phone, WhatsApp, or visit our photography studio in Dullahapur, Ghazipur.",
+        "url": `${window.location.origin}/contact`,
+        "mainEntity": {
+            "@type": "LocalBusiness",
+            "name": "Cameraman Pro",
+            "telephone": "+918601343232",
+            "address": {
+                "@type": "PostalAddress",
+                "streetAddress": "Main Market, Dullahapur",
+                "addressLocality": "Ghazipur",
+                "addressRegion": "Uttar Pradesh",
+                "postalCode": "275202",
+                "addressCountry": "IN"
+            }
+        }
+    }, "contact-page-schema");
+
     return (
         <div className="pt-28 pb-20 min-h-screen bg-[var(--bg-primary)]">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

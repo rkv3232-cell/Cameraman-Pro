@@ -3,12 +3,23 @@ import { Maximize2, X } from 'lucide-react';
 import { useGallery } from '../../hooks/useGallery';
 import LanguageContext from '../../context/LanguageContext';
 import { text } from '../../utils/text';
+import { useSEO } from '../../hooks/useSEO';
 
 export const Gallery = () => {
     const { images, loading, error } = useGallery();
     const [filter, setFilter] = useState('All');
     const [lightboxImg, setLightboxImg] = useState<string | null>(null);
     const { lang } = useContext(LanguageContext);
+    const hi = lang === 'hi';
+
+    useSEO({
+        title: hi ? "गैलरी | Cameraman Pro" : "Portfolio Gallery | Cameraman Pro",
+        description: hi 
+          ? "Cameraman Pro द्वारा खींचे गए वेडिंग, बर्थडे, प्री-वेडिंग और सिनेमाई लम्हों की गैलरी देखें।"
+          : "Browse our portfolio gallery featuring beautiful wedding shoots, pre-wedding sessions, birthday coverages, and custom cinematic visual art by Cameraman Pro.",
+        keywords: "photography gallery, wedding photography portfolio, pre-wedding photos, candid photography gallery",
+    });
+
     const categoryOptions = text.gallery.categories;
 
     const filtered = filter === 'All'

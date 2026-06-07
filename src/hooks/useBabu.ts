@@ -2,14 +2,14 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from './useAuth';
 import { toast } from 'react-hot-toast';
-import { sendMessageToBabu } from '../lib/groq';
+import { sendMessageToBabuStreaming } from '../lib/openrouter';
 import { voiceService } from '../lib/voiceService';
 import { useBookings } from './useBookings';
 import { useInventory } from './useInventory';
 import {
-    
-    
-    
+    Timestamp
+} from 'firebase/firestore';
+import {
     detectEquipmentConflicts,
     
     
@@ -19,6 +19,7 @@ import {
 } from '../lib/babuIntelligence';
 import { format, isToday, isTomorrow } from 'date-fns';
 import { sendWhatsAppMessage } from '../utils/whatsapp';
+import { normalizeFirestoreDate } from '../utils/date';
 
 // ─── Helper ────────────────────────────────────────────────────────────────────
 const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
@@ -29,8 +30,10 @@ if (recognition) {
     recognition.lang = 'hi-IN';
 }
 
-const toDate = (timestamp: any): Date =>
-    timestamp?.toDate ? timestamp.toDate() : new Date(timestamp);
+const toDate = (timestamp: any): Date => {
+    const d = normalizeFirestoreDate(timestamp);
+    return d || new Date();
+};
 
 const fmt = (d: any) => format(toDate(d), 'dd MMM yyyy');
 const fmtMoney = (paise: number) =>
@@ -55,27 +58,29 @@ interface ConversationContext {
 // ─── Build rich context string for AI ─────────────────────────────────────────
 function buildRichContext(
     bookings: any[],
-    
     userName?: string,
-    
 ): string {
     const now = new Date();
-    const todayBookings = bookings.filter(b => isToday(toDate(b.eventDate)));
-    const tomorrowBookings = bookings.filter(b => isTomorrow(toDate(b.eventDate)));
+    const sortedBookings = [...bookings].sort((a, b) => toDate(a.eventDate).getTime() - toDate(b.eventDate).getTime());
+    
+    const todayBookings = sortedBookings.filter(b => isToday(toDate(b.eventDate)));
+    const tomorrowBookings = sortedBookings.filter(b => isTomorrow(toDate(b.eventDate)));
+    const upcomingBookings = sortedBookings.filter(b => toDate(b.eventDate) > now && !isToday(toDate(b.eventDate)) && !isTomorrow(toDate(b.eventDate)));
     
     const pendingPayments = bookings.filter(b => (b.financials?.balanceDue ?? 0) > 0);
     const conflicts = detectEquipmentConflicts(bookings);
 
     const formatBooking = (b: any) =>
-        `• **${b.clientName}** — ${b.eventType ?? 'Event'} | ${fmt(b.eventDate)} | Due: ${fmtMoney(b.financials?.balanceDue ?? 0)} | Status: ${b.status}`;
+        `• **${b.clientName}** — ${b.eventType ?? 'इवेंट'} | ${fmt(b.eventDate)} | बकाया: ${fmtMoney(b.financials?.balanceDue ?? 0)} | स्थिति: ${b.status}`;
 
     return [
-        `User: ${userName ?? 'Owner'}`,
-        `Time: ${format(now, 'hh:mm a')}`,
-        `TODAY (${todayBookings.length}):\n${todayBookings.length > 0 ? todayBookings.map(formatBooking).join('\n') : 'None'}`,
-        `TOMORROW (${tomorrowBookings.length}):\n${tomorrowBookings.length > 0 ? tomorrowBookings.map(formatBooking).join('\n') : 'None'}`,
-        `PENDING DUES: ${pendingPayments.length} bookings`,
-        `CONFLICTS: ${conflicts.length}`
+        `स्टूडियो मालिक: ${userName ?? 'बॉस'}`,
+        `समय: ${format(now, 'hh:mm a')}`,
+        `आज के बुकिंग (${todayBookings.length}):\n${todayBookings.length > 0 ? todayBookings.map(formatBooking).join('\n') : 'कोई नहीं'}`,
+        `कल के बुकिंग (${tomorrowBookings.length}):\n${tomorrowBookings.length > 0 ? tomorrowBookings.map(formatBooking).join('\n') : 'कोई नहीं'}`,
+        `आगामी बुकिंग (${upcomingBookings.length}):\n${upcomingBookings.length > 0 ? upcomingBookings.slice(0, 50).map(formatBooking).join('\n') : 'कोई नहीं'}`,
+        `बकाया भुगतान: ${pendingPayments.length} बुकिंग`,
+        `उपकरण टकराव: ${conflicts.length}`
     ].join('\n\n');
 }
 
@@ -110,7 +115,7 @@ export function useBabu() {
     const location = useLocation();
     const navigate = useNavigate();
     const { userProfile } = useAuth();
-    const { bookings } = useBookings();
+    const { bookings, addBooking } = useBookings();
     const { inventory } = useInventory();
 
     const greetingShownRef = useRef(false);
@@ -142,7 +147,7 @@ export function useBabu() {
     // ─── 2. SPEECH CONTROLS ────────────────────────────────────────────────────
     const startVoiceCommand = useCallback(() => {
         if (!recognition) {
-            toast.error("Voice support unavailable.");
+            toast.error("वॉइस सपोर्ट उपलब्ध नहीं है।");
             return;
         }
         setIsListening(true);
@@ -153,24 +158,23 @@ export function useBabu() {
     const generateAutoGreeting = useCallback(() => {
         const hour = new Date().getHours();
         const timeOfDay = hour < 12 ? 'morning' : hour < 17 ? 'afternoon' : hour < 22 ? 'evening' : 'night';
-        const name = userProfile?.name ?? 'Boss';
+        const name = userProfile?.name ?? 'बॉस';
 
         const todayShots = bookings.filter(b => isToday(toDate(b.eventDate)));
         
-
         let greeting = "";
         if (timeOfDay === 'morning') greeting = `सुप्रभात **${name}**! 🌅`;
         else if (timeOfDay === 'afternoon') greeting = `नमस्ते **${name}**! ☕`;
         else if (timeOfDay === 'evening') greeting = `शुभ संध्या **${name}**! 🌇`;
-        else greeting = `बौस, काफ़ी रात हो गई है। 🌙`;
+        else greeting = `बॉस, काफ़ी रात हो गई है। 🌙`;
 
-        let msg = `${greeting}\n\nआज का Update:\n`;
+        let msg = `${greeting}\n\nआज का अपडेट:\n`;
         msg += todayShots.length > 0
             ? todayShots.map(b => `• 📸 **${b.clientName}**`).join('\n')
-            : `• आज कोई shoot नहीं है। 😎`;
+            : `• आज कोई शूट नहीं है। 😎`;
 
         const actions: BabuAction[] = [];
-        if (todayShots.length > 0) actions.push({ type: 'navigate', label: '📅 Today', data: { page: '/calendar' }, style: 'primary' });
+        if (todayShots.length > 0) actions.push({ type: 'navigate', label: '📅 आज का शेड्यूल', data: { page: '/calendar' }, style: 'primary' });
 
         return { message: msg, actions };
     }, [bookings, userProfile]);
@@ -180,19 +184,45 @@ export function useBabu() {
 
         if (context.lastBookingId && q.match(/(sab|detail|puri|poori|bata|khol|open|show|dekh)/)) {
             const b = bookings.find(x => x.id === context.lastBookingId);
-            if (b) return { handled: true, response: `**${b.clientName}** Details:\n📍 ${b.venue}\n📞 ${b.clientPhone}\n💰 Due: ${fmtMoney(b.financials?.balanceDue ?? 0)}`, actions: generateBookingActions(b) };
+            const fmtMoney = (paise: number) => `₹${(paise / 100).toLocaleString('en-IN')}`;
+            if (b) return { handled: true, response: `**${b.clientName}** की जानकारी:\n📍 स्थान: ${b.venue}\n📞 फोन: ${b.clientPhone}\n💰 बकाया: ${fmtMoney(b.financials?.balanceDue ?? 0)}`, actions: generateBookingActions(b) };
         }
 
         if (q.match(/(whatsapp|send|bhejo|bhej|msg|message)/) && context.lastBookingId) {
             const b = bookings.find(x => x.id === context.lastBookingId);
             if (b) {
-                sendWhatsAppMessage(b.clientPhone, `नमस्ते ${b.clientName} जी, Cameraman Pro से मेसेज है।`);
-                return { handled: true, response: `ठीक है बौस, **${b.clientName}** को WhatsApp भेज रहा हूँ। ✅`, actions: [] };
+                sendWhatsAppMessage(b.clientPhone, `नमस्ते ${b.clientName} जी, कैमरामैन प्रो से मैसेज है।`);
+                return { handled: true, response: `ठीक है बॉस, **${b.clientName}** को WhatsApp भेज रहा हूँ। ✅`, actions: [] };
             }
         }
 
         return { handled: false };
     }, [bookings, context]);
+
+    const handleSystemAction = async (fullResponse: string) => {
+        const actionMatch = fullResponse.match(/<system_action>([\s\S]*?)<\/system_action>/);
+        if (!actionMatch) return;
+
+        try {
+            const actionData = JSON.parse(actionMatch[1]);
+            console.log("BĀBU System Action detected:", actionData);
+
+            if (actionData.type === 'create_booking') {
+                const payload = actionData.payload;
+                // Safely convert any date format from AI to Firestore Timestamp
+                const parsedDate = normalizeFirestoreDate(payload.eventDate);
+                payload.eventDate = parsedDate ? Timestamp.fromDate(parsedDate) : Timestamp.now();
+                
+                await addBooking(payload);
+            } else if (actionData.type === 'send_whatsapp') {
+                const { phone, message } = actionData.payload;
+                sendWhatsAppMessage(phone, message);
+                toast.success("WhatsApp मैसेज भेज दिया गया है!");
+            }
+        } catch (e) {
+            console.error("Error executing BĀBU system action:", e);
+        }
+    };
 
     const sendMessage = useCallback(async (text: string) => {
         if (!text.trim()) return;
@@ -213,14 +243,43 @@ export function useBabu() {
         try {
             const richContext = buildRichContext(bookings, userProfile?.name);
             const history = messagesRef.current.slice(-10).map(m => ({ role: m.role, content: m.content }));
-            const aiResponse = await sendMessageToBabu(text, richContext, history);
-            addMessage('assistant', aiResponse);
+            
+            // Create a placeholder message for streaming
+            const assistantMsgId = `${Date.now()}-assistant`;
+            const placeholderMsg: Message = {
+                id: assistantMsgId,
+                role: 'assistant',
+                content: '',
+                timestamp: new Date()
+            };
+            setMessages(prev => [...prev, placeholderMsg]);
+
+            const fullResponse = await sendMessageToBabuStreaming(
+                text, 
+                richContext, 
+                history, 
+                (updatedText) => {
+                    // Clean up system tags from UI during streaming if possible
+                    const cleanText = updatedText.replace(/<system_action>[\s\S]*?<\/system_action>/g, '');
+                    setMessages(prev => prev.map(m => m.id === assistantMsgId ? { ...m, content: cleanText } : m));
+                }
+            );
+
+            // Execute actual action
+            await handleSystemAction(fullResponse);
+
+            // Once finished, handle voice if enabled
+            if (voiceActivated && voiceService.isActivated()) {
+                const cleanText = fullResponse.replace(/<system_action>[\s\S]*?<\/system_action>/g, '');
+                voiceService.speak(cleanText);
+            }
+
         } catch (error) {
-            addMessage('assistant', '❌ AI connection error।');
+            addMessage('assistant', '❌ AI से कनेक्शन में समस्या आई। कृपया दोबारा प्रयास करें।');
         } finally {
             setIsLoading(false);
         }
-    }, [bookings, inventory, userProfile, processLocalIntent, addMessage]);
+    }, [bookings, inventory, userProfile, processLocalIntent, addMessage, voiceActivated, addBooking]);
 
     // ─── 4. EFFECTS ────────────────────────────────────────────────────────────
     useEffect(() => {

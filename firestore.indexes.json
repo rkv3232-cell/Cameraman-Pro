@@ -1,6 +1,20 @@
 {
     "indexes": [
         {
+            "collectionGroup": "enquiries",
+            "queryScope": "COLLECTION",
+            "fields": [
+                {
+                    "fieldPath": "studioId",
+                    "order": "ASCENDING"
+                },
+                {
+                    "fieldPath": "createdAt",
+                    "order": "DESCENDING"
+                }
+            ]
+        },
+        {
             "collectionGroup": "expenses",
             "queryScope": "COLLECTION",
             "fields": [
@@ -34,6 +48,34 @@
             "fields": [
                 {
                     "fieldPath": "clientEmail",
+                    "order": "ASCENDING"
+                },
+                {
+                    "fieldPath": "eventDate",
+                    "order": "DESCENDING"
+                }
+            ]
+        },
+        {
+            "collectionGroup": "staff",
+            "queryScope": "COLLECTION",
+            "fields": [
+                {
+                    "fieldPath": "studioId",
+                    "order": "ASCENDING"
+                },
+                {
+                    "fieldPath": "createdAt",
+                    "order": "DESCENDING"
+                }
+            ]
+        },
+        {
+            "collectionGroup": "staffEvents",
+            "queryScope": "COLLECTION",
+            "fields": [
+                {
+                    "fieldPath": "studioId",
                     "order": "ASCENDING"
                 },
                 {

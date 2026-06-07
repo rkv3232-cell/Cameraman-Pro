@@ -86,7 +86,7 @@ export const Settings = () => {
             <h1 className="text-3xl font-bold text-[var(--text-primary)]">Settings</h1>
 
             {/* Profile Section */}
-            <div className="bg-[var(--surface-base)] rounded-xl border border-[var(--border-light)] overflow-hidden shadow-sm">
+            <div className="bg-[var(--surface-base)] rounded-[24px] border border-[var(--border-light)] overflow-hidden shadow-sm">
                 <div className="p-6 border-b border-[var(--border-light)] flex justify-between items-center">
                     <h2 className="text-lg font-semibold text-[var(--text-primary)] flex items-center gap-2">
                         <User size={20} className="text-[var(--accent-primary)]" />
@@ -146,7 +146,7 @@ export const Settings = () => {
             <NotificationSettings studioId={studioId} />
 
             {/* Team Collaboration Section */}
-            <div className="bg-[var(--surface-base)] rounded-xl border border-[var(--border-light)] overflow-hidden shadow-sm">
+            <div className="bg-[var(--surface-base)] rounded-[24px] border border-[var(--border-light)] overflow-hidden shadow-sm">
                 <div className="p-6 border-b border-[var(--border-light)]">
                     <h2 className="text-lg font-semibold text-[var(--text-primary)] flex items-center gap-2">
                         <Users size={20} className="text-blue-500" />
@@ -160,7 +160,7 @@ export const Settings = () => {
                     <div className="space-y-3">
                         <label className="text-sm font-medium text-[var(--text-secondary)]">My Studio Code</label>
                         <div className="flex items-center gap-3">
-                            <div className="flex-1 bg-gradient-to-r from-blue-500/10 to-orange-500/10 rounded-xl border-2 border-dashed border-blue-500/30 p-6 bg-[var(--bg-secondary)]">
+                            <div className="flex-1 bg-gradient-to-r from-blue-500/10 to-orange-500/10 rounded-[18px] border-2 border-dashed border-blue-500/30 p-6 bg-[var(--bg-secondary)]">
                                 <div className="text-center">
                                     <p className="text-xs text-[var(--text-tertiary)] mb-2">Share this code with your team</p>
                                     <p className="text-4xl font-bold tracking-widest text-[var(--text-primary)] font-mono selection:bg-blue-100">
@@ -213,7 +213,7 @@ export const Settings = () => {
             </div>
 
             {/* Sign Out Section */}
-            <div className="bg-red-50 dark:bg-red-500/10 rounded-xl border border-red-200 dark:border-red-500/20 p-6 flex justify-between items-center">
+            <div className="bg-red-50 dark:bg-red-500/10 rounded-[18px] border border-red-200 dark:border-red-500/20 p-6 flex justify-between items-center">
                 <div>
                     <h3 className="text-red-700 dark:text-red-400 font-medium">Sign Out</h3>
                     <p className="text-sm text-red-600/80 dark:text-red-400/60">End your current session safely.</p>

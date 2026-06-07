@@ -8,6 +8,33 @@ import toast from "react-hot-toast";
 const GALLERY_COLLECTION = "gallery";
 const CATEGORY_OPTIONS: GalleryCategory[] = ["Wedding", "Pre-Wedding", "Drone", "Cinematic"];
 
+const MOCK_GALLERY_IMAGES: GalleryImage[] = [
+    {
+        id: "mock_wedding",
+        title: "Luxury Wedding Shoot",
+        category: "Wedding",
+        imageUrl: "/luxury_wedding_shoot.png",
+        publicId: "mock_wedding",
+        createdAt: 1779510939129
+    },
+    {
+        id: "mock_fashion",
+        title: "Fashion Editorial Shoot",
+        category: "Cinematic",
+        imageUrl: "/fashion_editorial_shoot.png",
+        publicId: "mock_fashion",
+        createdAt: 1779510955241
+    },
+    {
+        id: "mock_action",
+        title: "Dynamic Action Shoot",
+        category: "Drone",
+        imageUrl: "/dynamic_action_shoot.png",
+        publicId: "mock_action",
+        createdAt: 1779510971387
+    }
+];
+
 export const useGallery = () => {
     const [images, setImages] = useState<GalleryImage[]>([]);
     const [loading, setLoading] = useState(true);
@@ -48,7 +75,7 @@ export const useGallery = () => {
                     } satisfies GalleryImage;
                 });
 
-                setImages(mapped);
+                setImages(mapped.length > 0 ? mapped : MOCK_GALLERY_IMAGES);
                 setLoading(false);
             },
             (snapshotError) => {

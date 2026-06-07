@@ -113,7 +113,7 @@ export const Enquiries = () => {
                     </p>
                 </div>
 
-                <div className="flex gap-2 bg-[var(--surface-base)] p-1 rounded-xl border border-[var(--border-light)]">
+                <div className="flex gap-2 bg-[var(--surface-base)] p-1 rounded-[18px] border border-[var(--border-light)]">
                     {(['all', 'new', 'contacted', 'converted', 'closed'] as const).map(f => (
                         <button
                             key={f}
@@ -130,7 +130,7 @@ export const Enquiries = () => {
             </header>
 
             {/* Search & Date Filter */}
-            <div className="flex flex-wrap gap-4 items-center bg-[var(--surface-base)] p-4 rounded-xl border border-[var(--border-light)] shadow-sm overflow-x-auto">
+            <div className="flex flex-wrap gap-4 items-center bg-[var(--surface-base)] p-4 rounded-[18px] border border-[var(--border-light)] shadow-sm overflow-x-auto">
                 <div className="relative flex-1 min-w-[200px]">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)] h-4 w-4" />
                     <Input
@@ -217,7 +217,7 @@ export const Enquiries = () => {
                     {filteredEnquiries.map(enquiry => (
                         <div
                             key={enquiry.id}
-                            className="bg-[var(--surface-base)] rounded-xl border border-[var(--border-light)] shadow-sm hover:border-[var(--border-medium)] transition-all p-5 flex flex-col"
+                            className="bg-[var(--surface-base)] rounded-[18px] border border-[var(--border-light)] shadow-sm hover:border-[var(--border-medium)] transition-all p-5 flex flex-col"
                         >
                             <div className="flex justify-between items-start mb-3">
                                 <div>

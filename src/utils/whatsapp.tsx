@@ -20,15 +20,30 @@ interface MessageSubEvent {
  * @param message The text message to send
  */
 export const sendWhatsAppMessage = (phone: string, message: string) => {
-    // Remove non-digits and ensure 91 for India
     const cleanPhone = phone.replace(/\D/g, '');
     const formattedPhone = cleanPhone.length === 10 ? `91${cleanPhone}` : cleanPhone;
-
-    console.log(`[BĀBU] Opening WhatsApp for ${formattedPhone}`);
-
-    // Fallback to Manual Link (Clean & Independent)
     const encodedMessage = encodeURIComponent(message);
     window.open(`https://wa.me/${formattedPhone}?text=${encodedMessage}`, '_blank');
+};
+
+/**
+ * Shares a file (PDF/Image) directly if supported (Mobile)
+ */
+export const shareFile = async (file: File, text: string) => {
+    if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+        try {
+            await navigator.share({
+                files: [file],
+                title: 'Share File',
+                text: text,
+            });
+            return true;
+        } catch (err) {
+            console.error("Share failed", err);
+            return false;
+        }
+    }
+    return false;
 };
 
 export const CUSTOMER_WHATSAPP_EVENT = "cameraman:whatsapp-reply-sent";
@@ -130,39 +145,50 @@ export const getBookingConfirmationMessage = (
     balance?: string
 ) => {
     const eventsBlock = formatEventsBlock(events);
+    const cleanAmount = balance?.replace(/[^\d.]/g, '') || '0';
+    const upiLink = `upi://pay?pa=ckv3232@ybl&pn=Cameraman%20Pro&am=${cleanAmount}&cu=INR&tn=Booking`;
 
     return `नमस्ते ${clientName} जी,
 
- आपकी बुकिंग सफलतापूर्वक कन्फर्म हो गई है।
+आपकी बुकिंग सफलतापूर्वक कन्फर्म हो गई है। ✅
 
- 📅 कार्यक्रम विवरण:
+📅 कार्यक्रम विवरण:
+${eventsBlock}
 
- ${eventsBlock}
+💰 कुल पैकेज: ₹${total}
+💵 अग्रिम भुगतान: ₹${advance || "0"}
+📉 शेष राशि: ₹${balance || "0"}
 
- 💰 कुल पैकेज: ₹${total}
- 💵 अग्रिम भुगतान: ₹${advance || "0"}
- 📉 शेष राशि: ₹${balance || "0"}
+💳 पेमेंट लिंक (UPI): 
+${upiLink}
 
- 📞 संपर्क करें:
- 8601343232
+🏦 UPI ID: ckv3232@ybl
 
- Owner:
- Chandan Kumar Verma
-
- धन्यवाद,
- Cameraman Pro`;
+धन्यवाद,
+Cameraman Pro`;
 };
 
 export const getPaymentReminderMessage = (clientName: string, dueAmount: string) => {
+    const cleanAmount = dueAmount.replace(/[^\d.]/g, '');
+    const upiLink = `upi://pay?pa=ckv3232@ybl&pn=Cameraman%20Pro&am=${cleanAmount}&cu=INR&tn=Payment%20Reminder`;
+    const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(upiLink)}`;
+
     return `नमस्ते ${clientName} जी,
 
- यह रिमाइंडर है कि आपका ₹${dueAmount} बकाया है। कृपया पेमेंट कर दें ताकि हम आपकी सर्विस बेहतर तरीके से दे सकें।
+यह रिमाइंडर है कि आपका ₹${dueAmount} बकाया है। कृपया पेमेंट कर दें। 🙏
 
- 📞 संपर्क करें:
- 8601343232
+💳 पेमेंट लिंक (UPI):
+${upiLink}
 
- धन्यवाद,
- Cameraman Pro`;
+🖼️ स्कैन करें और पे करें (QR Code):
+${qrImageUrl}
+
+🏦 UPI ID: ckv3232@ybl
+
+📞 संपर्क करें: 8601343232
+
+धन्यवाद,
+Cameraman Pro`;
 };
 
 export const getFollowUpMessage = (clientName: string) => {

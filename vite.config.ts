@@ -9,6 +9,25 @@ export default defineConfig({
         VitePWA({
             registerType: 'autoUpdate',
             includeAssets: ['logo.png'],
+            workbox: {
+                cleanupOutdatedCaches: true,
+                skipWaiting: true,
+                clientsClaim: true,
+                globIgnores: ['**/cameraman-pro.png'],
+                runtimeCaching: [
+                    {
+                        urlPattern: /^https:\/\/cameraman-pro-2aa2b\.web\.app\/(?!.*(cameraman-pro|\.apk)).*$/,
+                        handler: 'NetworkFirst',
+                        options: {
+                            cacheName: 'site-cache',
+                            expiration: {
+                                maxEntries: 50,
+                                maxAgeSeconds: 60 * 60 * 24 // 1 day
+                            }
+                        }
+                    }
+                ]
+            },
             manifest: {
                 name: 'Cameraman Pro',
                 short_name: 'Cameraman Pro',
@@ -32,6 +51,11 @@ export default defineConfig({
             }
         })
     ],
+    server: {
+        port: 5173,
+        strictPort: true,
+        host: true
+    },
     build: {
         rollupOptions: {
             output: {

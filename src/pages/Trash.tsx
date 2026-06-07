@@ -1,5 +1,5 @@
 import { useTrash } from "../hooks/useTrash";
-import { format } from "date-fns";
+import { safeFormat } from "../utils/date";
 import { Trash2, RotateCcw, AlertOctagon } from "lucide-react";
 
 export const Trash = () => {
@@ -14,7 +14,7 @@ export const Trash = () => {
             </h1>
             <p className="text-[var(--text-secondary)]">Items are automatically removed after 30 days.</p>
 
-            <div className="bg-[var(--surface-base)] rounded-xl border border-[var(--border-light)] overflow-hidden shadow-sm">
+            <div className="bg-[var(--surface-base)] rounded-[24px] border border-[var(--border-light)] overflow-hidden shadow-sm">
                 {trashItems.length > 0 ? (
                     <>
                         <div className="hidden md:block overflow-x-auto">
@@ -44,7 +44,7 @@ export const Trash = () => {
                                                 </div>
                                             </td>
                                             <td className="p-4 text-[var(--text-secondary)] text-sm">
-                                                {item.deletedAt && item.deletedAt.toDate ? format(item.deletedAt.toDate(), "PP p") : 'Unknown Date'}
+                                                {safeFormat(item.deletedAt, "PP p")}
                                             </td>
                                             <td className="p-4 flex gap-2">
                                                 <button
@@ -69,7 +69,7 @@ export const Trash = () => {
                         </div>
                         <div className="grid grid-cols-1 gap-4 p-4 md:hidden">
                             {trashItems.map((item) => (
-                                <div key={item.id} className="bg-[var(--bg-secondary)] p-4 rounded-xl border border-[var(--border-light)]">
+                                <div key={item.id} className="bg-[var(--bg-secondary)] p-4 rounded-[18px] border border-[var(--border-light)]">
                                     <div className="flex justify-between items-start mb-2">
                                         <div>
                                             <div className="font-medium text-[var(--text-primary)]">
@@ -84,7 +84,7 @@ export const Trash = () => {
                                         </span>
                                     </div>
                                     <div className="text-xs text-[var(--text-secondary)] mb-3">
-                                        Deleted: {item.deletedAt && item.deletedAt.toDate ? format(item.deletedAt.toDate(), "PP p") : 'Unknown Date'}
+                                        Deleted: {safeFormat(item.deletedAt, "PP p")}
                                     </div>
                                     <div className="flex justify-end gap-2 border-t border-[var(--border-light)] pt-3">
                                         <button

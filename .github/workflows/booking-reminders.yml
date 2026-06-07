@@ -21,7 +21,7 @@ jobs:
 
       - name: 📦 Install Dependencies
         run: |
-          npm install firebase-admin date-fns
+          npm install firebase-admin
 
       - name: 🔔 Run Reminders Script
         env:

@@ -1,15 +1,6 @@
 import { Booking, InventoryItem } from '../types';
-import { format, isToday, isTomorrow } from 'date-fns';
-
-/**
- * Helper to convert Firestore Timestamp to Date
- */
-function toDate(timestamp: any): Date {
-    if (timestamp?.toDate) {
-        return timestamp.toDate();
-    }
-    return new Date(timestamp);
-}
+import { isToday, isTomorrow } from 'date-fns';
+import { toSafeDate, safeFormat } from '../utils/date';
 
 /**
  * Action types that BĀBU can suggest
@@ -42,14 +33,14 @@ export function findBookingsByDate(bookings: Booking[], dateQuery: string): Book
     // Handle relative dates
     if (queryLower.includes('आज') || queryLower.includes('today')) {
         return bookings.filter(b => {
-            const date = toDate(b.eventDate);
+            const date = toSafeDate(b.eventDate);
             return isToday(date);
         });
     }
 
     if (queryLower.includes('कल') || queryLower.includes('kal') || queryLower.includes('tomorrow')) {
         return bookings.filter(b => {
-            const date = toDate(b.eventDate);
+            const date = toSafeDate(b.eventDate);
             return isTomorrow(date);
         });
     }
@@ -65,8 +56,8 @@ export function findBookingsByDate(bookings: Booking[], dateQuery: string): Book
         const match = dateQuery.match(pattern);
         if (match) {
             return bookings.filter(b => {
-                const bookingDate = toDate(b.eventDate);
-                const dateStr = format(bookingDate, 'dd MMM').toLowerCase();
+                const bookingDate = toSafeDate(b.eventDate);
+                const dateStr = safeFormat(bookingDate, 'dd MMM').toLowerCase();
                 return dateStr.includes(match[0].toLowerCase());
             });
         }
@@ -111,8 +102,8 @@ export function detectEquipmentConflicts(bookings: Booking[]): Array<{
     bookings.forEach(booking => {
         if (booking.status === 'cancelled' || booking.status === 'deleted') return;
 
-        const date = toDate(booking.eventDate);
-        const dateKey = format(date, 'yyyy-MM-dd');
+        const date = toSafeDate(booking.eventDate);
+        const dateKey = safeFormat(date, 'yyyy-MM-dd');
 
         if (!bookingsByDate.has(dateKey)) {
             bookingsByDate.set(dateKey, []);
@@ -169,10 +160,10 @@ export function getPendingPostProduction(bookings: Booking[]): Array<{
             const status = b.postProductionStatus;
             const pendingTasks: string[] = [];
 
-            if (!status?.dataBackup) pendingTasks.push('Data Backup');
-            if (!status?.photoEditing) pendingTasks.push('Photo Editing');
-            if (!status?.videoMixing) pendingTasks.push('Video Mixing');
-            if (!status?.albumSent) pendingTasks.push('Album Delivery');
+            if (!status?.dataBackup) pendingTasks.push('डेटा बैकअप');
+            if (!status?.photoEditing) pendingTasks.push('फोटो एडिटिंग');
+            if (!status?.videoMixing) pendingTasks.push('वीडियो मिक्सिंग');
+            if (!status?.albumSent) pendingTasks.push('एल्बम डिलीवरी');
 
             return {
                 booking: b,
@@ -199,11 +190,11 @@ export function generateDailyBrief(context: BabuContext): {
     else if (hour < 17) greeting = 'नमस्ते';
     else greeting = 'शुभ संध्या';
 
-    const userName = context.userName || 'Boss';
+    const userName = context.userName || 'बॉस';
 
     // Today's shoots
     const todayShots = context.bookings.filter(b => {
-        const date = toDate(b.eventDate);
+        const date = toSafeDate(b.eventDate);
         return isToday(date) && (b.status === 'confirmed' || b.status === 'pending');
     });
 
@@ -214,17 +205,17 @@ export function generateDailyBrief(context: BabuContext): {
     // Urgent tasks
     const urgentTasks: string[] = [];
     const tomorrowShots = context.bookings.filter(b => {
-        const date = toDate(b.eventDate);
+        const date = toSafeDate(b.eventDate);
         return isTomorrow(date);
     });
 
     if (tomorrowShots.length > 0) {
-        urgentTasks.push(`${tomorrowShots.length} कल की shoots तैयार करें`);
+        urgentTasks.push(`${tomorrowShots.length} कल के शूट्स तैयार करें`);
     }
 
     const conflicts = detectEquipmentConflicts(context.bookings);
     if (conflicts.length > 0) {
-        urgentTasks.push(`${conflicts.length} equipment conflicts resolve करें`);
+        urgentTasks.push(`${conflicts.length} उपकरण टकराव ठीक करें`);
     }
 
     return {
@@ -238,13 +229,13 @@ export function generateDailyBrief(context: BabuContext): {
         actions: [
             {
                 type: 'navigate',
-                label: '📅 आज का Schedule',
+                label: '📅 आज का शेड्यूल',
                 data: { page: '/calendar' },
                 style: 'primary'
             },
             {
                 type: 'navigate',
-                label: '💰 Pending Payments',
+                label: '💰 बकाया भुगतान',
                 data: { page: '/bookings' },
                 style: 'secondary'
             }
@@ -270,7 +261,7 @@ export function analyzeClientHistory(bookings: Booking[], clientName: string): {
             totalRevenue: 0,
             averageDelay: 0,
             reliabilityScore: 0,
-            summary: `${clientName} का कोई record नहीं मिला।`
+            summary: `${clientName} का कोई रिकॉर्ड नहीं मिला।`
         };
     }
 
@@ -285,15 +276,15 @@ export function analyzeClientHistory(bookings: Booking[], clientName: string): {
 
     const reliabilityScore = completedBookings.length / clientBookings.length * 100;
 
-    let summary = `${clientName} ने ${clientBookings.length} bookings करवाई हैं, `;
-    summary += `कुल ₹${Math.floor(totalRevenue).toLocaleString('en-IN')} revenue।\n`;
+    let summary = `${clientName} ने ${clientBookings.length} बुकिंग करवाई हैं, `;
+    summary += `कुल ₹${Math.floor(totalRevenue).toLocaleString('en-IN')} कमाई।\n`;
 
     if (reliabilityScore > 80) {
-        summary += '✅ बहुत reliable client है।';
+        summary += '✅ बहुत भरोसेमंद क्लाइंट है।';
     } else if (reliabilityScore > 50) {
-        summary += '⚠️ कभी-कभी payment में देरी करता है।';
+        summary += '⚠️ कभी-कभी भुगतान में देरी करता है।';
     } else {
-        summary += '🚨 Payment track record कमजोर है।';
+        summary += '🚨 भुगतान का रिकॉर्ड कमजोर है।';
     }
 
     return {
@@ -318,16 +309,16 @@ export function generateBookingActions(booking: Booking): BabuAction[] {
         },
         {
             type: 'whatsapp',
-            label: '💬 WhatsApp Client',
+            label: '💬 WhatsApp भेजें',
             data: {
                 phone: booking.clientPhone,
-                message: `नमस्ते ${booking.clientName} जी,\n\nआपकी booking के बारे में बात करनी थी।\n\nधन्यवाद,\nCameraman Pro`
+                message: `नमस्ते ${booking.clientName} जी,\n\nआपकी booking के बारे में बात करनी थी।\n\nधन्यवाद,\nकैमरामैन प्रो`
             },
             style: 'success'
         },
         ...(booking.financials.balanceDue > 0 ? [{
             type: 'update' as const,
-            label: '💰 Payment Update करें',
+            label: '💰 भुगतान अपडेट करें',
             data: { bookingId: booking.id, action: 'add_payment' },
             style: 'secondary' as const
         }] : [])

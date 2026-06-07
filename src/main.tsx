@@ -4,6 +4,10 @@ import { Toaster } from 'react-hot-toast'
 import App from './App'
 import './index.css'
 import { ErrorBoundary } from './components/ErrorBoundary.tsx'
+import { registerSW } from 'virtual:pwa-register'
+
+// Auto update the service worker when a new version is available
+registerSW({ immediate: true })
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
     <React.StrictMode>

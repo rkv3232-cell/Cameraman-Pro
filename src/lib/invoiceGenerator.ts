@@ -33,10 +33,29 @@ const C = {
 // ─── Main export ──────────────────────────────────────────────────────────────
 
 /**
- * Generates a professional A4-size invoice PDF from booking data.
- * @returns jsPDF instance — call `.save()` or `.output()` on it.
+ * Helper to fetch QR code image as Base64
  */
-export function generateInvoicePDF(booking: Booking, studioName = "Cameraman Pro"): jsPDF {
+async function getQRCodeBase64(data: string): Promise<string> {
+    try {
+        const url = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(data)}`;
+        const response = await fetch(url);
+        const blob = await response.blob();
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+        });
+    } catch (err) {
+        console.error("QR Generation failed", err);
+        return "";
+    }
+}
+
+/**
+ * Generates a professional A4-size invoice PDF from booking data.
+ */
+export async function generateInvoicePDF(booking: Booking, studioName = "Cameraman Pro"): Promise<jsPDF> {
     const doc = new jsPDF({ unit: "mm", format: "a4" });
     const PW = 210;                 // page width mm
     const ML = 14;                  // left margin
@@ -253,6 +272,60 @@ export function generateInvoicePDF(booking: Booking, studioName = "Cameraman Pro
         Y += 4;
     }
 
+    // ── Payment / UPI Section ──────────────────────────────────────────────────
+    if (balance > 0) {
+        Y = Math.max(Y, 205); 
+        doc.setFillColor(249, 250, 251); // slate-50
+        doc.roundedRect(ML, Y, CW, 35, 2, 2, "F");
+        doc.setDrawColor(...C.border);
+        doc.roundedRect(ML, Y, CW, 35, 2, 2, "D");
+
+        // QR Area (Left)
+        doc.setFillColor(255, 255, 255);
+        doc.rect(ML + 5, Y + 5, 25, 25, "F");
+        doc.setDrawColor(...C.accent);
+        doc.rect(ML + 5, Y + 5, 25, 25, "D");
+        
+        // Auto-generate QR Code
+        const upiLink = `upi://pay?pa=ckv3232@ybl&pn=${encodeURIComponent(studioName)}&am=${balance/100}&cu=INR`;
+        const qrBase64 = await getQRCodeBase64(upiLink);
+        if (qrBase64) {
+            doc.addImage(qrBase64, "PNG", ML + 6, Y + 6, 23, 23);
+        } else {
+            doc.setFontSize(5);
+            doc.text("QR Loading Failed", ML + 17.5, Y + 17.5, { align: "center" });
+        }
+        
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(6);
+        doc.setTextColor(...C.accent);
+        doc.text("SCAN TO PAY", ML + 17.5, Y + 4, { align: "center" });
+        
+        // UPI Details (Right)
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(10);
+        doc.setTextColor(...C.text);
+        doc.text("Payment Information", ML + 35, Y + 10);
+        
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(8.5);
+        doc.setTextColor(...C.muted);
+        doc.text("Please pay the balance amount to the following UPI ID:", ML + 35, Y + 15);
+        
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(11);
+        doc.setTextColor(...C.accentDark);
+        doc.text("ckv3232@ybl", ML + 35, Y + 22);
+        
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(8);
+        doc.setTextColor(...C.muted);
+        doc.text("Merchant: Chandan Kumar Verma", ML + 35, Y + 27);
+        doc.text("Accepted Apps: GPay, PhonePe, Paytm, Amazon Pay", ML + 35, Y + 31);
+        
+        Y += 40;
+    }
+
     // ── Notes section ─────────────────────────────────────────────────────────
     if (booking.notes) {
         doc.setFont("helvetica", "bold");
@@ -284,8 +357,8 @@ export function generateInvoicePDF(booking: Booking, studioName = "Cameraman Pro
 /**
  * Convenience: generates & downloads the PDF immediately.
  */
-export function downloadInvoicePDF(booking: Booking, studioName?: string): void {
-    const doc = generateInvoicePDF(booking, studioName);
+export async function downloadInvoicePDF(booking: Booking, studioName?: string): Promise<void> {
+    const doc = await generateInvoicePDF(booking, studioName);
     const fname = `Invoice_${booking.clientName.replace(/\s+/g, "_")}_${booking.id.slice(0, 6)}.pdf`;
     doc.save(fname);
 }

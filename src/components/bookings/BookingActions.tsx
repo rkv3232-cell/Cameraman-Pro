@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Booking } from "../../types";
 import { WhatsAppButton, getBookingConfirmationMessage, getPaymentReminderMessage, getFollowUpMessage } from "../../utils/whatsapp";
 import { Phone, MoreVertical, Edit2, Trash2, CheckCircle2 } from "lucide-react";
-import { format } from "date-fns";
+import { safeFormat } from "../../utils/date";
 import { formatMoney } from "../../utils/currency";
 
 interface BookingActionsProps {
@@ -30,7 +30,7 @@ export const BookingActions = ({ booking, onEdit, onDelete, onMarkCompleted }: B
     // Build events array for WhatsApp message - fallback to single event if no subEvents
     const messageEvents = (booking.subEvents && booking.subEvents.length > 0)
         ? booking.subEvents
-        : [{ title: booking.eventType || 'Event', date: format(booking.eventDate.toDate(), 'yyyy-MM-dd'), time: format(booking.eventDate.toDate(), 'HH:mm') }];
+        : [{ title: booking.eventType || 'Event', date: safeFormat(booking.eventDate, 'yyyy-MM-dd'), time: safeFormat(booking.eventDate, 'HH:mm') }];
 
     const confirmMsg = getBookingConfirmationMessage(
         booking.clientName,

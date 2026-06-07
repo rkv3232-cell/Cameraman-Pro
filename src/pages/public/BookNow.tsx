@@ -23,8 +23,20 @@ const variants = {
   exit: { opacity: 0, x: -20 }
 };
 
+import { useSEO } from '../../hooks/useSEO';
+
 const BookNow = () => {
   const { lang } = useContext(LanguageContext);
+  const hi = lang === 'hi';
+
+  useSEO({
+    title: hi ? "अभी बुक करें | Cameraman Pro" : "Book Your Shoot | Cameraman Pro",
+    description: hi 
+      ? "वेडिंग, बर्थडे, प्री-वेडिंग और अन्य फोटोग्राफी/वीडियोग्राफी सेवाओं के लिए आसानी से ऑनलाइन अपॉइंटमेंट बुक करें।"
+      : "Book your wedding photography, birthday shoot, pre-wedding couple session, and digital services online in under 2 minutes.",
+    keywords: "book photographer online, wedding booking ghazipur, pre-wedding shoot online, book birthday photoshoot",
+  });
+
   const [step, setStep] = useState(1);
   const [submitted, setSubmitted] = useState(false);
   const [formData, setFormData] = useState({

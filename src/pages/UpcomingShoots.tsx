@@ -12,6 +12,7 @@ import { BookingActions } from "../components/bookings/BookingActions";
 import { Booking } from "../types";
 import { format } from "date-fns";
 import { formatMoney } from "../utils/currency";
+import { normalizeFirestoreDate } from "../utils/date";
 
 export const UpcomingShoots = () => {
     const navigate = useNavigate();
@@ -29,9 +30,9 @@ export const UpcomingShoots = () => {
         const isUpcoming = !b.shootStatus || b.shootStatus === 'upcoming';
         if (!isUpcoming) return false;
 
-        const date = b.eventDate.toDate();
-        const mainDateStr = format(date, 'yyyy-MM-dd');
-        const formattedDate = format(date, 'MMM dd yyyy').toLowerCase();
+        let bDate = normalizeFirestoreDate(b.eventDate) || new Date();
+        const mainDateStr = format(bDate, 'yyyy-MM-dd');
+        const formattedDate = format(bDate, 'MMM dd yyyy').toLowerCase();
         const subEventDates = b.subEvents?.map(se => se.date) || [];
         const matchesDate = !dateFilter || mainDateStr === dateFilter || subEventDates.includes(dateFilter);
 
@@ -91,7 +92,7 @@ export const UpcomingShoots = () => {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
                     <div className="flex items-center gap-3">
-                        <div className="p-2 rounded-xl bg-amber-500/10">
+                        <div className="p-2 rounded-[12px] bg-amber-500/10">
                             <Clock className="h-6 w-6 text-amber-500" />
                         </div>
                         <div>
@@ -108,7 +109,7 @@ export const UpcomingShoots = () => {
             </div>
 
             {/* Filters */}
-            <div className="flex flex-wrap gap-4 items-center bg-[var(--surface-base)] p-4 rounded-xl border border-[var(--border-light)] shadow-sm">
+            <div className="flex flex-wrap gap-4 items-center bg-[var(--surface-base)] p-4 rounded-[18px] border border-[var(--border-light)] shadow-sm">
                 <div className="relative flex-1 min-w-[200px]">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)] h-4 w-4" />
                     <Input
@@ -138,7 +139,7 @@ export const UpcomingShoots = () => {
             </div>
 
             {/* Bookings Table / Cards */}
-            <div className="bg-[var(--surface-base)] rounded-xl border border-[var(--border-light)] overflow-hidden shadow-sm">
+            <div className="bg-[var(--surface-base)] rounded-[24px] border border-[var(--border-light)] overflow-hidden shadow-sm">
                 {loading ? (
                     <div className="p-12 text-center text-[var(--text-secondary)]">Loading upcoming shoots...</div>
                 ) : upcomingBookings.length > 0 ? (
@@ -181,10 +182,16 @@ export const UpcomingShoots = () => {
                                                 <td className="p-4 text-[var(--text-primary)]">
                                                     <div className="flex items-center gap-2 font-medium">
                                                         <CalendarIcon className="h-4 w-4 text-amber-500" />
-                                                        {format(booking.eventDate.toDate(), 'MMM dd')}
+                                                        {(() => {
+                                                            let d = normalizeFirestoreDate(booking.eventDate) || new Date();
+                                                            return format(d, 'MMM dd');
+                                                        })()}
                                                     </div>
                                                     <div className="text-xs text-[var(--text-secondary)] pl-6">
-                                                        {format(booking.eventDate.toDate(), 'h:mm a')}
+                                                        {(() => {
+                                                            let d = normalizeFirestoreDate(booking.eventDate) || new Date();
+                                                            return format(d, 'h:mm a');
+                                                        })()}
                                                     </div>
                                                 </td>
                                                 <td className="p-4">
@@ -261,14 +268,17 @@ export const UpcomingShoots = () => {
                                     <div
                                         key={booking.id}
                                         onClick={() => navigate(`/bookings/${booking.id}`)}
-                                        className="bg-[var(--bg-secondary)] p-4 rounded-xl border border-amber-200/60 dark:border-amber-500/20 shadow-sm hover:border-amber-400/50 transition-colors cursor-pointer"
+                                        className="bg-[var(--bg-secondary)] p-4 rounded-[18px] border border-amber-200/60 dark:border-amber-500/20 shadow-sm hover:border-amber-400/50 transition-colors cursor-pointer"
                                     >
                                         <div className="flex justify-between items-start mb-2">
                                             <div>
                                                 <div className="font-bold text-[var(--text-primary)]">{booking.clientName}</div>
                                                 <div className="text-xs text-[var(--text-secondary)] mt-0.5 flex items-center gap-1">
                                                     <CalendarIcon className="w-3 h-3 text-amber-500" />
-                                                    {format(booking.eventDate.toDate(), 'MMM dd, yyyy')} at {format(booking.eventDate.toDate(), 'h:mm a')}
+                                                    {(() => {
+                                                        let d = normalizeFirestoreDate(booking.eventDate) || new Date();
+                                                        return `${format(d, 'MMM dd, yyyy')} at ${format(d, 'h:mm a')}`;
+                                                    })()}
                                                 </div>
                                             </div>
                                             <div onClick={(e) => e.stopPropagation()}>

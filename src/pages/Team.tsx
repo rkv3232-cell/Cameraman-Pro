@@ -20,6 +20,8 @@ import {
     Phone,
     Check,
     AlertTriangle,
+    DollarSign,
+    Briefcase,
 } from "lucide-react";
 import { format } from "date-fns";
 import toast from "react-hot-toast";
@@ -42,6 +44,27 @@ const RoleBadge = ({ role }: { role: TeamRole }) => {
             textClass: "text-blue-700 dark:text-blue-400",
             borderClass: "border-blue-200 dark:border-blue-500/20",
         },
+        manager: {
+            label: "Manager",
+            icon: Briefcase,
+            bgClass: "bg-indigo-50 dark:bg-indigo-500/10",
+            textClass: "text-indigo-700 dark:text-indigo-400",
+            borderClass: "border-indigo-200 dark:border-indigo-500/20",
+        },
+        coordinator: {
+            label: "Coordinator",
+            icon: Calendar,
+            bgClass: "bg-emerald-50 dark:bg-emerald-500/10",
+            textClass: "text-emerald-700 dark:text-emerald-400",
+            borderClass: "border-emerald-200 dark:border-emerald-500/20",
+        },
+        accountant: {
+            label: "Accountant",
+            icon: DollarSign,
+            bgClass: "bg-rose-50 dark:bg-rose-500/10",
+            textClass: "text-rose-700 dark:text-rose-400",
+            borderClass: "border-rose-200 dark:border-rose-500/20",
+        },
         member: {
             label: "Member",
             icon: User,
@@ -51,7 +74,7 @@ const RoleBadge = ({ role }: { role: TeamRole }) => {
         },
     };
 
-    const c = config[role];
+    const c = config[role] || config.member;
     const Icon = c.icon;
 
     return (
@@ -156,7 +179,7 @@ export const Team = () => {
     const openRoleModal = (uid: string, name: string, currentRole: TeamRole) => {
         setSelectedMember(uid);
         setSelectedMemberName(name);
-        setNewRole(currentRole === 'admin' ? 'member' : 'admin');
+        setNewRole(currentRole);
         setIsRoleModalOpen(true);
         setOpenMenuId(null);
     };
@@ -207,7 +230,7 @@ export const Team = () => {
         if (canManageTeam) {
             // Change role
             actions.push({
-                label: member.role === 'admin' ? 'Demote to Member' : 'Promote to Admin',
+                label: 'Change Role',
                 icon: Shield,
                 onClick: () => openRoleModal(member.uid, member.name, member.role),
             });
@@ -286,7 +309,7 @@ export const Team = () => {
             </div>
 
             {/* ─── TEAM MEMBERS LIST ─────────────── */}
-            <div className="bg-[var(--surface-base)] border border-[var(--border-light)] rounded-2xl overflow-hidden shadow-sm">
+            <div className="bg-[var(--surface-base)] border border-[var(--border-light)] rounded-2xl shadow-sm">
                 {/* Header */}
                 <div className="p-4 sm:p-6 border-b border-[var(--border-light)] flex items-center justify-between">
                     <h3 className="text-lg font-semibold text-[var(--text-primary)] flex items-center gap-2">
@@ -659,54 +682,77 @@ export const Team = () => {
                         Change role for <strong className="text-[var(--text-primary)]">{selectedMemberName}</strong>:
                     </p>
 
-                    <div className="space-y-3">
-                        {/* Admin Option */}
-                        <button
-                            onClick={() => setNewRole('admin')}
-                            className={`w-full p-4 rounded-xl border text-left transition-all ${newRole === 'admin'
-                                ? 'border-blue-500 bg-blue-50 dark:bg-blue-500/10'
-                                : 'border-[var(--border-light)] bg-[var(--surface-base)] hover:bg-[var(--surface-hover)]'
-                                }`}
-                        >
-                            <div className="flex items-center gap-3">
-                                <Shield size={20} className={newRole === 'admin' ? 'text-blue-500' : 'text-[var(--text-tertiary)]'} />
-                                <div>
-                                    <p className={`font-semibold ${newRole === 'admin' ? 'text-blue-700 dark:text-blue-300' : 'text-[var(--text-primary)]'}`}>
-                                        Admin
-                                    </p>
-                                    <p className="text-xs text-[var(--text-secondary)]">
-                                        Can view team, invite members, manage bookings
-                                    </p>
-                                </div>
-                                {newRole === 'admin' && (
-                                    <Check size={20} className="ml-auto text-blue-500" />
-                                )}
-                            </div>
-                        </button>
-
-                        {/* Member Option */}
-                        <button
-                            onClick={() => setNewRole('member')}
-                            className={`w-full p-4 rounded-xl border text-left transition-all ${newRole === 'member'
-                                ? 'border-[var(--accent-primary)] bg-[var(--accent-primary)]/5'
-                                : 'border-[var(--border-light)] bg-[var(--surface-base)] hover:bg-[var(--surface-hover)]'
-                                }`}
-                        >
-                            <div className="flex items-center gap-3">
-                                <User size={20} className={newRole === 'member' ? 'text-[var(--accent-primary)]' : 'text-[var(--text-tertiary)]'} />
-                                <div>
-                                    <p className={`font-semibold ${newRole === 'member' ? 'text-[var(--accent-primary)]' : 'text-[var(--text-primary)]'}`}>
-                                        Member
-                                    </p>
-                                    <p className="text-xs text-[var(--text-secondary)]">
-                                        Can view data, no management permissions
-                                    </p>
-                                </div>
-                                {newRole === 'member' && (
-                                    <Check size={20} className="ml-auto text-[var(--accent-primary)]" />
-                                )}
-                            </div>
-                        </button>
+                    <div className="space-y-3 max-h-[350px] overflow-y-auto pr-1">
+                        {[
+                            {
+                                value: 'admin' as TeamRole,
+                                label: 'Admin',
+                                description: 'Full access to bookings, crew, and settings.',
+                                icon: Shield,
+                                activeColor: 'text-blue-500',
+                                activeBg: 'border-blue-500 bg-blue-50 dark:bg-blue-500/10 text-blue-700 dark:text-blue-300'
+                            },
+                            {
+                                value: 'manager' as TeamRole,
+                                label: 'Manager',
+                                description: 'Can manage crew, bookings, and team settings.',
+                                icon: Briefcase,
+                                activeColor: 'text-indigo-500',
+                                activeBg: 'border-indigo-500 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-300'
+                            },
+                            {
+                                value: 'coordinator' as TeamRole,
+                                label: 'Coordinator',
+                                description: 'Coordinates bookings, schedules crew, and tracks attendance.',
+                                icon: Calendar,
+                                activeColor: 'text-emerald-500',
+                                activeBg: 'border-emerald-500 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
+                            },
+                            {
+                                value: 'accountant' as TeamRole,
+                                label: 'Accountant',
+                                description: 'Manages payments, invoices, and financial reports.',
+                                icon: DollarSign,
+                                activeColor: 'text-rose-500',
+                                activeBg: 'border-rose-500 bg-rose-50 dark:bg-rose-500/10 text-rose-700 dark:text-rose-300'
+                            },
+                            {
+                                value: 'member' as TeamRole,
+                                label: 'Member',
+                                description: 'Standard view-only access across the workspace.',
+                                icon: User,
+                                activeColor: 'text-[var(--accent-primary)]',
+                                activeBg: 'border-[var(--accent-primary)] bg-[var(--accent-primary)]/5 text-[var(--accent-primary)]'
+                            }
+                        ].map(opt => {
+                            const IconComponent = opt.icon;
+                            const isSelected = newRole === opt.value;
+                            return (
+                                <button
+                                    key={opt.value}
+                                    onClick={() => setNewRole(opt.value)}
+                                    className={`w-full p-4 rounded-xl border text-left transition-all ${isSelected
+                                        ? opt.activeBg
+                                        : 'border-[var(--border-light)] bg-[var(--surface-base)] hover:bg-[var(--surface-hover)]'
+                                        }`}
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <IconComponent size={20} className={isSelected ? opt.activeColor : 'text-[var(--text-tertiary)]'} />
+                                        <div>
+                                            <p className={`font-semibold ${isSelected ? '' : 'text-[var(--text-primary)]'}`}>
+                                                {opt.label}
+                                            </p>
+                                            <p className="text-xs text-[var(--text-secondary)]">
+                                                {opt.description}
+                                            </p>
+                                        </div>
+                                        {isSelected && (
+                                            <Check size={20} className={`ml-auto ${opt.activeColor}`} />
+                                        )}
+                                    </div>
+                                </button>
+                            );
+                        })}
                     </div>
 
                     <div className="flex justify-end gap-3 pt-2 border-t border-[var(--border-light)]">

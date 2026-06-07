@@ -1,15 +1,16 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useBookings } from "../hooks/useBookings";
 import { BookingModal } from "../components/bookings/BookingModal";
+import { SmartBookingImportModal } from "../components/bookings/SmartBookingImportModal";
 import { DeleteModal } from "../components/bookings/DeleteModal";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
-import { Plus, Search, Calendar as CalendarIcon, Phone, MapPin } from "lucide-react";
+import { Plus, Search, Calendar as CalendarIcon, Phone, MapPin, Sparkles } from "lucide-react";
 import { BookingActions } from "../components/bookings/BookingActions";
 import { Booking } from "../types";
 import { format } from "date-fns";
-
+import { normalizeFirestoreDate } from "../utils/date";
 import { formatMoney } from "../utils/currency";
 
 export const Bookings = () => {
@@ -18,6 +19,7 @@ export const Bookings = () => {
     const [searchTerm, setSearchTerm] = useState("");
     const [dateFilter, setDateFilter] = useState("");
     const [isFormOpen, setIsFormOpen] = useState(false);
+    const [isSmartImportOpen, setIsSmartImportOpen] = useState(false);
     const [editingBooking, setEditingBooking] = useState<Booking | undefined>(undefined);
 
     // Delete state - We store the whole booking now for trash metadata
@@ -25,42 +27,44 @@ export const Bookings = () => {
     const [isDeleteLoading, setIsDeleteLoading] = useState(false);
 
     // Filter Logic
-    const filteredBookings = bookings.filter(b => {
-        const date = b.eventDate.toDate();
-        const mainDateStr = format(date, 'yyyy-MM-dd');
-        const formattedDate = format(date, 'MMM dd yyyy').toLowerCase();
+    const filteredBookings = useMemo(() => {
+        return bookings.filter(b => {
+            let bookingDate = normalizeFirestoreDate(b.eventDate) || new Date();
+            const mainDateStr = format(bookingDate, 'yyyy-MM-dd');
+            const formattedDate = format(bookingDate, 'MMM dd yyyy').toLowerCase();
 
-        // Check if any sub-event date matches the selected date filter
-        const subEventDates = b.subEvents?.map(se => se.date) || [];
-        const matchesDate = !dateFilter || mainDateStr === dateFilter || subEventDates.includes(dateFilter);
+            // Check if any sub-event date matches the selected date filter
+            const subEventDates = b.subEvents?.map(se => se.date) || [];
+            const matchesDate = !dateFilter || mainDateStr === dateFilter || subEventDates.includes(dateFilter);
 
-        // Normalize search term for flexible date matching (e.g., 10/5 or 10-05)
-        const search = searchTerm.toLowerCase().trim();
-        const normalizedSearch = search.replace(/\//g, '-');
+            // Normalize search term for flexible date matching (e.g., 10/5 or 10-05)
+            const search = searchTerm.toLowerCase().trim();
+            const normalizedSearch = search.replace(/\//g, '-');
 
-        // Check if search term matches sub-events
-        const subEventMatchesSearch = b.subEvents?.some(se => {
-            const seTitle = se.title.toLowerCase();
-            const seDate = se.date; // yyyy-mm-dd
-            const seDateDisplay = format(new Date(se.date), 'dd/MM/yyyy');
-            const seDateShort = format(new Date(se.date), 'dd/MM');
-            
-            return seTitle.includes(search) || 
-                   seDate.includes(normalizedSearch) || 
-                   seDateDisplay.includes(search) || 
-                   seDateShort.includes(search);
+            // Check if search term matches sub-events
+            const subEventMatchesSearch = b.subEvents?.some(se => {
+                const seTitle = se.title.toLowerCase();
+                const seDate = se.date; // yyyy-mm-dd
+                const seDateDisplay = format(new Date(se.date), 'dd/MM/yyyy');
+                const seDateShort = format(new Date(se.date), 'dd/MM');
+                
+                return seTitle.includes(search) || 
+                       seDate.includes(normalizedSearch) || 
+                       seDateDisplay.includes(search) || 
+                       seDateShort.includes(search);
+            });
+
+            const matchesSearch =
+                !search ||
+                b.clientName.toLowerCase().includes(search) ||
+                b.clientPhone.includes(search) ||
+                b.venue.toLowerCase().includes(search) ||
+                formattedDate.includes(search) ||
+                subEventMatchesSearch;
+
+            return matchesSearch && matchesDate;
         });
-
-        const matchesSearch =
-            !search ||
-            b.clientName.toLowerCase().includes(search) ||
-            b.clientPhone.includes(search) ||
-            b.venue.toLowerCase().includes(search) ||
-            formattedDate.includes(search) ||
-            subEventMatchesSearch;
-
-        return matchesSearch && matchesDate;
-    });
+    }, [bookings, searchTerm, dateFilter]);
 
     const handleEdit = (booking: Booking) => {
         setEditingBooking(booking);
@@ -68,7 +72,7 @@ export const Bookings = () => {
     };
 
     const handleSave = async (data: any) => {
-        if (editingBooking) {
+        if (editingBooking && editingBooking.id) {
             await updateBooking(editingBooking.id, data);
         } else {
             await addBooking(data);
@@ -87,16 +91,40 @@ export const Bookings = () => {
         }
     };
 
+    const handleSmartImportSuccess = (extracted: any) => {
+        const mappedData = {
+            clientName: extracted.clientName || "",
+            clientPhone: extracted.clientPhone || "",
+            eventType: extracted.eventType || "other",
+            eventDate: extracted.eventDate || "",
+            venue: extracted.venue || "",
+            notes: extracted.notes || "",
+            financials: {
+                totalAmount: 0,
+                advancePaid: extracted.advancePaid ? parseInt(extracted.advancePaid) * 100 : 0,
+                balanceDue: 0,
+                paymentHistory: []
+            }
+        } as any;
+        setEditingBooking(mappedData);
+        setIsFormOpen(true);
+    };
+
     return (
         <div className="space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <h1 className="text-3xl font-bold text-[var(--text-primary)]">Bookings</h1>
-                <Button onClick={() => { setEditingBooking(undefined); setIsFormOpen(true); }}>
-                    <Plus className="mr-2 h-4 w-4" /> New Booking
-                </Button>
+                <div className="flex items-center gap-3">
+                    <Button variant="secondary" className="border-purple-200 dark:border-purple-500/20 text-purple-700 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-500/10" onClick={() => setIsSmartImportOpen(true)}>
+                        <Sparkles className="mr-2 h-4 w-4" /> Smart Import
+                    </Button>
+                    <Button onClick={() => { setEditingBooking(undefined); setIsFormOpen(true); }}>
+                        <Plus className="mr-2 h-4 w-4" /> New Booking
+                    </Button>
+                </div>
             </div>
 
-            <div className="flex flex-wrap gap-4 items-center bg-[var(--surface-base)] p-4 rounded-xl border border-[var(--border-light)] shadow-sm">
+            <div className="flex flex-wrap gap-4 items-center bg-[var(--surface-base)] p-4 rounded-[18px] border border-[var(--border-light)] shadow-sm">
                 <div className="relative flex-1 min-w-[200px]">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)] h-4 w-4" />
                     <Input
@@ -125,7 +153,7 @@ export const Bookings = () => {
                 </div>
             </div>
 
-            <div className="bg-[var(--surface-base)] rounded-xl border border-[var(--border-light)] overflow-hidden shadow-sm">
+            <div className="bg-[var(--surface-base)] rounded-[24px] border border-[var(--border-light)] overflow-hidden shadow-sm">
                 {loading ? (
                     <div className="p-12 text-center text-[var(--text-secondary)]">Loading bookings...</div>
                 ) : filteredBookings.length > 0 ? (
@@ -158,10 +186,16 @@ export const Bookings = () => {
                                                 <td className="p-4 text-[var(--text-primary)]">
                                                     <div className="flex items-center gap-2 font-medium">
                                                         <CalendarIcon className="h-4 w-4 text-[var(--text-tertiary)]" />
-                                                        {format(booking.eventDate.toDate(), 'MMM dd')}
+                                                        {(() => {
+                                                            let d = normalizeFirestoreDate(booking.eventDate) || new Date();
+                                                            return format(d, 'MMM dd');
+                                                        })()}
                                                     </div>
                                                     <div className="text-xs text-[var(--text-secondary)] pl-6">
-                                                        {format(booking.eventDate.toDate(), 'h:mm a')}
+                                                        {(() => {
+                                                            let d = normalizeFirestoreDate(booking.eventDate) || new Date();
+                                                            return format(d, 'h:mm a');
+                                                        })()}
                                                     </div>
                                                 </td>
                                                 <td className="p-4">
@@ -230,14 +264,17 @@ export const Bookings = () => {
                                     <div
                                         key={booking.id}
                                         onClick={() => navigate(`/bookings/${booking.id}`)}
-                                        className="bg-[var(--bg-secondary)] p-4 rounded-xl border border-[var(--border-light)] shadow-sm hover:border-[var(--accent-primary)]/50 transition-colors cursor-pointer"
+                                        className="bg-[var(--bg-secondary)] p-4 rounded-[18px] border border-[var(--border-light)] shadow-sm hover:border-[var(--accent-primary)]/50 transition-colors cursor-pointer"
                                     >
                                         <div className="flex justify-between items-start mb-2">
                                             <div>
                                                 <div className="font-bold text-[var(--text-primary)]">{booking.clientName}</div>
                                                 <div className="text-xs text-[var(--text-secondary)] mt-0.5 flex items-center gap-1">
                                                     <CalendarIcon className="w-3 h-3" />
-                                                    {format(booking.eventDate.toDate(), 'MMM dd, yyyy')} at {format(booking.eventDate.toDate(), 'h:mm a')}
+                                                    {(() => {
+                                                        let d = normalizeFirestoreDate(booking.eventDate) || new Date();
+                                                        return `${format(d, 'MMM dd, yyyy')} at ${format(d, 'h:mm a')}`;
+                                                    })()}
                                                 </div>
                                             </div>
                                             <div onClick={(e) => e.stopPropagation()}>
@@ -307,6 +344,12 @@ export const Bookings = () => {
                 onClose={() => setIsFormOpen(false)}
                 booking={editingBooking}
                 onSave={handleSave}
+            />
+
+            <SmartBookingImportModal
+                isOpen={isSmartImportOpen}
+                onClose={() => setIsSmartImportOpen(false)}
+                onSuccess={handleSmartImportSuccess}
             />
 
             <DeleteModal

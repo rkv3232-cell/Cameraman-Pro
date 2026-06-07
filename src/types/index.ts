@@ -56,7 +56,9 @@ export interface UserProfile {
     phone?: string;
     photoURL?: string;
     studioId: string;
-    role: 'owner' | 'admin' | 'photographer' | 'assistant' | 'client';
+    personalWorkspaceId?: string;
+    activeWorkspaceId?: string;
+    role: 'owner' | 'admin' | 'manager' | 'member' | 'accountant' | 'coordinator' | 'client';
     createdAt: Timestamp;
 }
 
@@ -75,7 +77,7 @@ export interface Studio {
 }
 
 // ─── TEAM SYSTEM ────────────────────────────────────
-export type TeamRole = 'owner' | 'admin' | 'member';
+export type TeamRole = 'owner' | 'admin' | 'manager' | 'member' | 'accountant' | 'coordinator';
 export type MemberStatus = 'active' | 'removed';
 
 export interface TeamMember {
@@ -94,7 +96,7 @@ export interface TeamMember {
 export interface BookingTeamMember {
     uid: string;
     name: string;
-    role: 'main_photographer' | 'drone_operator' | 'editor' | 'assistant';
+    role: 'lead_photographer' | 'second_shooter' | 'editor' | 'drone_operator' | 'assistant' | 'freelancer';
 }
 
 export interface TeamAssignment {
@@ -309,4 +311,156 @@ export interface SearchResult {
     subtitle: string;
     path: string;
     icon?: string;
+}
+
+// ─── PHOTO SESSION SYSTEM ────────────────────────────────────────────────────
+
+export type SelectionType = 'favorite' | 'album' | 'priority' | 'rejected' | 'download';
+
+export type SessionStatus = 'draft' | 'active' | 'locked' | 'delivered';
+
+export interface WatermarkConfig {
+    enabled: boolean;
+    text: string;           // Studio name
+    logoUrl?: string;       // Cloudinary logo public_id
+    opacity: number;        // 0–100
+    position: 'center' | 'bottom-right' | 'bottom-left' | 'top-right';
+}
+
+export interface SelectionDeadline {
+    bookingId: string;
+    studioId: string;
+    deadlineAt: Timestamp;         // When selection closes
+    reminders: string[];           // ISO strings for scheduled reminder times
+    autoLock: boolean;             // Lock session when deadline passes
+    createdAt: Timestamp;
+}
+
+export interface PhotoSession {
+    id: string;
+    studioId: string;
+    bookingId: string;
+    clientName: string;
+    eventType: string;
+    eventDate: Timestamp;
+    status: SessionStatus;
+    accessCode: string;            // e.g. "WED-X7K2" — used for /select/:accessCode
+    totalPhotos: number;
+    maxSelections?: number;        // Optional cap
+    watermark?: WatermarkConfig;
+    deadlineAt?: Timestamp;
+    isLocked: boolean;
+    notes?: string;
+    createdAt: Timestamp;
+    updatedAt: Timestamp;
+    createdBy: string;
+}
+
+export interface SessionPhoto {
+    id: string;
+    sessionId: string;
+    studioId: string;
+    cloudinaryUrl: string;
+    cloudinaryPublicId: string;
+    thumbnailUrl: string;          // Cloudinary w_400 transformation
+    order: number;
+    familyGroup?: string;          // Optional group id
+    tags?: string[];               // Cloudinary AI tags
+    aiScore?: number;              // 0–100 from BestShotDetector
+    isDuplicate?: boolean;
+    uploadedAt: Timestamp;
+}
+
+export interface PhotoSelection {
+    id: string;                    // clientId or accessCode-based key
+    sessionId: string;
+    studioId: string;
+    accessCode: string;
+    clientLabel?: string;          // "Bride's Mom", etc.
+    selections: Record<string, SelectionType | null>; // photoId → type
+    totalSelected: number;
+    submittedAt?: Timestamp;
+    isSubmitted: boolean;
+    updatedAt: Timestamp;
+}
+
+export interface FamilyGroup {
+    id: string;
+    sessionId: string;
+    studioId: string;
+    name: string;                  // e.g. "Bride Side", "Groom Side"
+    color: string;                 // hex for UI badge
+    photoIds: string[];
+    order: number;
+}
+
+// ─── EDITOR & ALBUM WORKFLOW ──────────────────────────────────────────────────
+
+export type EditorTaskStatus =
+    | 'pending_edit'
+    | 'color_grading'
+    | 'album_design'
+    | 'export_complete';
+
+export interface EditorTask {
+    id: string;
+    studioId: string;
+    sessionId: string;
+    bookingId: string;
+    clientName: string;
+    status: EditorTaskStatus;
+    assignedTo?: string;           // TeamMember uid
+    assignedName?: string;
+    totalSelected: number;
+    notes?: string;
+    dueDate?: Timestamp;
+    createdAt: Timestamp;
+    updatedAt: Timestamp;
+}
+
+export type AlbumStage =
+    | 'selection_pending'
+    | 'album_designing'
+    | 'client_approval'
+    | 'printing'
+    | 'delivery';
+
+export interface AlbumQueueItem {
+    id: string;
+    studioId: string;
+    sessionId: string;
+    bookingId: string;
+    clientName: string;
+    stage: AlbumStage;
+    designerUid?: string;
+    designerName?: string;
+    albumPages?: number;
+    albumSize?: string;            // e.g. "12x36"
+    printVendor?: string;
+    notes?: string;
+    approvedAt?: Timestamp;
+    createdAt: Timestamp;
+    updatedAt: Timestamp;
+}
+
+export type DeliveryMode = 'digital' | 'pendrive' | 'album' | 'courier';
+export type DeliveryStatus = 'preparing' | 'shipped' | 'delivered';
+
+export interface DeliveryRecord {
+    id: string;
+    studioId: string;
+    bookingId: string;
+    sessionId?: string;
+    clientName: string;
+    clientPhone: string;
+    mode: DeliveryMode;
+    status: DeliveryStatus;
+    trackingCode?: string;         // Courier tracking number
+    courierPartner?: string;       // e.g. "DTDC", "BlueDart"
+    address?: string;
+    shippedAt?: Timestamp;
+    deliveredAt?: Timestamp;
+    notes?: string;
+    createdAt: Timestamp;
+    updatedAt: Timestamp;
 }

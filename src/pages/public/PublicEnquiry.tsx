@@ -9,10 +9,22 @@ import LanguageContext from '../../context/LanguageContext';
 import { text } from '../../utils/text';
 import { sendWhatsAppReply } from '../../utils/whatsapp';
 
+import { useSEO } from '../../hooks/useSEO';
+
 export const PublicEnquiry = () => {
     const [loading, setLoading] = useState(false);
     const [success, setSuccess] = useState(false);
     const { lang } = useContext(LanguageContext);
+    const hi = lang === 'hi';
+
+    useSEO({
+        title: hi ? "पूछताछ फॉर्म | Cameraman Pro" : "Enquiry Form | Cameraman Pro",
+        description: hi 
+          ? "अपने आगामी विवाह समारोह या इवेंट के लिए फ़ोटोग्राफ़ी और वीडियोग्राफ़ी कोटेशन की पूछताछ करें। तुरंत व्हाट्सएप और ईमेल अपडेट प्राप्त करें।"
+          : "Get a custom photography and videography quote for your upcoming wedding or event. Fill out our simple online enquiry form.",
+        keywords: "photography enquiry, wedding photography quote, hire photographer ghazipur, pre-wedding cost inquiry",
+    });
+
     const [formData, setFormData] = useState({
         name: '',
         phone: '',

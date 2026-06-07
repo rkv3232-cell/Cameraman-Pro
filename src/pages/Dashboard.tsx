@@ -4,8 +4,8 @@ import { useExpenses } from "../hooks/useExpenses";
 import { useInventory } from "../hooks/useInventory";
 import { useAuth } from "../hooks/useAuth";
 import { useBabuAgent } from "../hooks/useBabuAgent";
+import { toSafeDate, safeFormat } from "../utils/date";
 import { useNavigate } from "react-router-dom";
-import { format } from "date-fns";
 import { Calendar, DollarSign, TrendingUp, TrendingDown, Wallet, BarChart3, Lightbulb, AlertCircle, CheckCircle, Clock, BellRing } from "lucide-react";
 import { formatMoney } from "../utils/currency";
 import { useEnquiries } from "../hooks/useEnquiries";
@@ -15,15 +15,22 @@ import { generateReport, formatReportSummary } from "../lib/reportService";
 import { PredictiveAlert } from "../types";
 
 const InfoCard = ({ title, value, icon: Icon, color, subtext }: any) => (
-    <div className="bg-[var(--surface-base)] p-5 rounded-xl border border-[var(--border-light)] shadow-sm hover:shadow-md transition-all">
-        <div className="flex items-center justify-between mb-3">
-            <p className="text-sm font-medium text-[var(--text-secondary)]">{title}</p>
-            <div className={`p-2 rounded-lg bg-[var(--bg-secondary)] ${color}`}>
+    <div className="relative overflow-hidden group rounded-[24px] border border-[var(--border-subtle)] bg-gradient-to-b from-[var(--surface-base)] to-[var(--bg-secondary)] p-6 shadow-md hover:shadow-xl hover:-translate-y-1 hover:border-[var(--accent-primary)]/20 transition-all duration-300">
+        {/* Soft decorative background glow */}
+        <span className="absolute -right-10 -top-10 w-24 h-24 rounded-full bg-[var(--accent-primary)]/5 blur-xl group-hover:bg-[var(--accent-primary)]/10 transition-colors pointer-events-none" />
+        
+        <div className="flex items-center justify-between mb-4">
+            <p className="text-xs font-semibold uppercase tracking-wider text-[var(--text-tertiary)]">{title}</p>
+            <div className={`w-10 h-10 rounded-[14px] flex items-center justify-center bg-[var(--bg-primary)] border border-[var(--border-subtle)] ${color} group-hover:scale-110 transition-transform duration-300`}>
                 <Icon size={18} />
             </div>
         </div>
-        <h3 className="text-2xl font-bold text-[var(--text-primary)]">{value}</h3>
-        {subtext && <p className="text-xs text-[var(--text-tertiary)] mt-1.5">{subtext}</p>}
+        <h3 className="text-3xl font-bold tracking-tight text-[var(--text-primary)]">{value}</h3>
+        {subtext && (
+            <p className="text-xs text-[var(--text-secondary)]/70 mt-2 font-medium flex items-center gap-1">
+                {subtext}
+            </p>
+        )}
     </div>
 );
 
@@ -55,7 +62,7 @@ export const Dashboard = () => {
         const now = new Date();
         const monthlyRevenuePaise = bookings
             .filter(b => {
-                const d = b.eventDate?.toDate ? b.eventDate.toDate() : new Date(b.eventDate as any);
+                const d = toSafeDate(b.eventDate);
                 return (
                     d.getMonth() === now.getMonth() &&
                     d.getFullYear() === now.getFullYear() &&
@@ -67,14 +74,34 @@ export const Dashboard = () => {
         const monthlyExpensesPaise = expenseAnalytics.totalThisMonth;
         const netProfitPaise = monthlyRevenuePaise - monthlyExpensesPaise;
 
-        const active = bookings.filter(b =>
-            ['confirmed', 'pending'].includes(b.status) &&
-            b.eventDate.toDate() >= new Date()
-        ).length;
+        const active = bookings.filter(b => {
+            const bDate = toSafeDate(b.eventDate);
+            return ['confirmed', 'pending'].includes(b.status) && bDate >= new Date();
+        }).length;
 
-        // Pending amount = sum of balanceDue across all active bookings
-        const pendingAmountPaise = bookings
-            .filter(b => b.status === 'confirmed' || b.status === 'pending')
+        const todayEnd = new Date();
+        todayEnd.setHours(23, 59, 59, 999);
+
+        // Receivables: Conducted shoots (eventDate <= today) and payment status NOT fully paid
+        const receivablesPaise = bookings
+            .filter(b => {
+                const bDate = toSafeDate(b.eventDate);
+                const isConducted = bDate <= todayEnd;
+                const due = (b.financials?.totalAmount || 0) - (b.financials?.advancePaid || 0);
+                return isConducted && due > 0 && ['confirmed', 'completed', 'pending'].includes(b.status);
+            })
+            .reduce((sum, b) => {
+                const due = (b.financials?.totalAmount || 0) - (b.financials?.advancePaid || 0);
+                return sum + Math.max(0, due);
+            }, 0);
+
+        // Upcoming Revenue: Projected income for future shoots (eventDate > today)
+        const upcomingRevenuePaise = bookings
+            .filter(b => {
+                const bDate = toSafeDate(b.eventDate);
+                const isFuture = bDate > todayEnd;
+                return isFuture && ['confirmed', 'pending'].includes(b.status);
+            })
             .reduce((sum, b) => {
                 const due = (b.financials?.totalAmount || 0) - (b.financials?.advancePaid || 0);
                 return sum + Math.max(0, due);
@@ -90,7 +117,9 @@ export const Dashboard = () => {
             monthlyExpenses: monthlyExpensesPaise / 100,
             netProfit: netProfitPaise / 100,
             netProfitPaise,
-            pendingAmount: pendingAmountPaise / 100,
+            receivables: receivablesPaise / 100,
+            upcomingRevenue: upcomingRevenuePaise / 100,
+            pendingAmount: (receivablesPaise + upcomingRevenuePaise) / 100,
             confirmedCount,
             completedCount,
         };
@@ -112,8 +141,15 @@ export const Dashboard = () => {
     }, [bookings, expenses]);
 
     const upcomingEvents = bookings
-        .filter(b => ['confirmed', 'pending'].includes(b.status) && b.eventDate.toDate() >= new Date())
-        .sort((a, b) => a.eventDate.toMillis() - b.eventDate.toMillis())
+        .filter(b => {
+            const bDate = toSafeDate(b.eventDate);
+            return ['confirmed', 'pending'].includes(b.status) && bDate >= new Date();
+        })
+        .sort((a, b) => {
+            const aTime = toSafeDate(a.eventDate).getTime();
+            const bTime = toSafeDate(b.eventDate).getTime();
+            return aTime - bTime;
+        })
         .slice(0, 5);
 
     if (loading) {
@@ -132,7 +168,7 @@ export const Dashboard = () => {
                 <div className="flex items-center gap-2">
                     <button
                         onClick={() => navigate("/analytics")}
-                        className="flex items-center gap-2 px-4 py-2 bg-[var(--accent-primary)] text-white rounded-xl text-sm font-medium hover:bg-[var(--accent-secondary)] transition-all shadow-sm"
+                        className="flex items-center gap-2 px-5 py-2.5 bg-[var(--accent-primary)] text-white rounded-[18px] text-sm font-semibold hover:bg-[var(--accent-secondary)] transition-all shadow-sm active:scale-95 hover:shadow-md"
                     >
                         <BarChart3 size={16} />
                         Analytics
@@ -140,7 +176,7 @@ export const Dashboard = () => {
                     {dailyReport && (
                         <button
                             onClick={() => setShowReport(!showReport)}
-                            className="flex items-center gap-2 px-4 py-2 bg-[var(--surface-base)] border border-[var(--border-light)] rounded-xl text-sm font-medium text-[var(--text-secondary)] hover:text-[var(--accent-primary)] hover:border-[var(--accent-primary)]/30 transition-all shadow-sm"
+                            className="flex items-center gap-2 px-5 py-2.5 bg-[var(--surface-base)] border border-[var(--border-subtle)] rounded-[18px] text-sm font-semibold text-[var(--text-secondary)] hover:text-[var(--accent-primary)] hover:border-[var(--accent-primary)]/30 transition-all shadow-sm active:scale-95"
                         >
                             <BarChart3 size={16} />
                             Today's Report
@@ -252,13 +288,20 @@ export const Dashboard = () => {
             </div>
 
             {/* Revenue Detail Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <InfoCard
-                    title="Pending Amount"
-                    value={formatMoney(stats.pendingAmount)}
+                    title="Current Receivables"
+                    value={formatMoney(stats.receivables)}
                     icon={AlertCircle}
-                    color="text-orange-500"
-                    subtext="Balance due across all active bookings"
+                    color="text-red-500"
+                    subtext="Conducted shoots with unpaid balance"
+                />
+                <InfoCard
+                    title="Upcoming Revenue"
+                    value={formatMoney(stats.upcomingRevenue)}
+                    icon={TrendingUp}
+                    color="text-amber-500"
+                    subtext="Expected balance from future bookings"
                 />
                 <InfoCard
                     title="Confirmed Events"
@@ -319,9 +362,9 @@ export const Dashboard = () => {
                                                         <div className="text-xs text-[var(--text-tertiary)]">{booking.clientPhone}</div>
                                                     </td>
                                                     <td className="p-4 text-[var(--text-secondary)]">
-                                                        {format(booking.eventDate.toDate(), 'MMM dd, yyyy')}
+                                                        {safeFormat(booking.eventDate, 'MMM dd, yyyy')}
                                                         <div className="text-xs opacity-60">
-                                                            {format(booking.eventDate.toDate(), 'h:mm a')}
+                                                            {safeFormat(booking.eventDate, 'h:mm a')}
                                                         </div>
                                                     </td>
                                                     <td className="p-4">
@@ -356,7 +399,9 @@ export const Dashboard = () => {
                                             <div className="flex justify-between items-start mb-2">
                                                 <div>
                                                     <div className="font-bold text-[var(--text-primary)]">{booking.clientName}</div>
-                                                    <div className="text-xs text-[var(--text-secondary)] mt-0.5">{format(booking.eventDate.toDate(), 'MMM dd, yyyy')} • {format(booking.eventDate.toDate(), 'h:mm a')}</div>
+                                                    <div className="text-xs text-[var(--text-secondary)] mt-0.5">
+                                                        {safeFormat(booking.eventDate, 'MMM dd, yyyy')} • {safeFormat(booking.eventDate, 'h:mm a')}
+                                                    </div>
                                                 </div>
                                                 <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-bold capitalize border
                                                     ${booking.status === 'confirmed' ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20' :

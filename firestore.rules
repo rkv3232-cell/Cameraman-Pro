@@ -32,16 +32,39 @@ service cloud.firestore {
       return isAuth() && userStudio() == studioId;
     }
 
-    // USERS: Self only
+    // Check if current user is the actual OWNER of a studio (via studios collection)
+    // This handles cases where user.role may be stale/wrong but they own the studio
+    function isStudioOwner(studioId) {
+      return isAuth() &&
+        exists(/databases/$(database)/documents/studios/$(studioId)) &&
+        get(/databases/$(database)/documents/studios/$(studioId)).data.ownerId == request.auth.uid;
+    }
+
+    // USERS:
+    // - Each user can always read/write their own profile
+    // - Any authenticated user can READ other profiles (required for team member list query)
+    // - Studio OWNERS can also WRITE to members' profiles (required for removeMember to
+    //   switch the removed user's studioId away from the owner's studio)
     match /users/{userId} {
-      allow read, write: if isAuth() && request.auth.uid == userId;
+      allow read: if isAuth();
+      allow write: if isAuth() && (
+        request.auth.uid == userId ||
+        // Studio owner removing/updating a team member:
+        // The member currently belongs to a studio owned by the requester
+        (resource != null &&
+         exists(/databases/$(database)/documents/studios/$(resource.data.studioId)) &&
+         get(/databases/$(database)/documents/studios/$(resource.data.studioId)).data.ownerId == request.auth.uid)
+      );
     }
     
-    // STUDIOS: Members only
+    // STUDIOS:
+    // - Any authenticated user can read a studio doc (required for joinTeam code lookup)
+    // - Any authenticated user can create (needed on first signup)
+    // - Only the studio owner or master can update
     match /studios/{studioId} {
-      allow read: if isMyStudio(studioId) || isMasterOwner();
+      allow read: if isAuth();
       allow create: if isAuth();
-      allow update: if (isMyStudio(studioId) && userRole() == 'admin') || isMasterOwner();
+      allow update: if (isMyStudio(studioId) && (userRole() == 'owner' || userRole() == 'admin')) || isMasterOwner();
     }
     
     // BOOKINGS
@@ -76,10 +99,38 @@ service cloud.firestore {
       allow read, create, delete: if isAuth() && (resource.data.studioId == userStudio() || isMasterOwner());
     }
 
-    // ENQUIRIES: Public can create, ONLY OWNER can manage
+    // ENQUIRIES: Public can create, studio members (owners, admins) of that studio or master can manage
     match /enquiries/{enquiryId} {
       allow create: if true;
-      allow read, update, delete: if isMasterOwner();
+      allow read, update, delete: if isMasterOwner() || (isAuth() && (userRole() == 'owner' || userRole() == 'admin') && resource.data.studioId == userStudio());
+    }
+
+    // EXPENSES:
+    match /expenses/{expenseId} {
+      allow read: if isAuth() && (resource.data.studioId == userStudio() || isMasterOwner());
+      allow create: if isAuth() && (request.resource.data.studioId == userStudio() || isMasterOwner()) && (userRole() == 'owner' || userRole() == 'admin' || userRole() == 'manager');
+      allow update, delete: if isAuth() && (resource.data.studioId == userStudio() || isMasterOwner()) && (userRole() == 'owner' || userRole() == 'admin' || userRole() == 'manager');
+    }
+
+    // WORKSPACES & MEMBERS:
+    match /workspaces/{studioId} {
+      allow read, write: if isAuth() && (isMyStudio(studioId) || isMasterOwner());
+      
+      match /members/{memberId} {
+        allow read: if isAuth() && (isMyStudio(studioId) || memberId == request.auth.uid || isMasterOwner());
+        allow create: if isAuth() && (memberId == request.auth.uid || isMyStudio(studioId) || isMasterOwner());
+        allow update, delete: if isAuth() && (
+          memberId == request.auth.uid || 
+          (isMyStudio(studioId) && (userRole() == 'owner' || userRole() == 'admin')) || 
+          isMasterOwner()
+        );
+      }
+    }
+
+    // STUDIO SETTINGS: Studio members can read, only owners/admins or master can write
+    match /studioSettings/{studioId} {
+      allow read: if isMyStudio(studioId) || isStudioOwner(studioId) || isMasterOwner();
+      allow write: if isStudioOwner(studioId) || (isMyStudio(studioId) && (userRole() == 'owner' || userRole() == 'admin')) || isMasterOwner();
     }
 
     // GALLERY & REVIEWS: Public can read, ONLY OWNER can manage
@@ -92,6 +143,104 @@ service cloud.firestore {
       allow read: if true;
       allow create: if true; 
       allow update, delete: if isMasterOwner();
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
+    // PHASE 1 ADDITIONS — Photo Session Selection System
+    // ─────────────────────────────────────────────────────────────────────
+
+    // PHOTO SESSIONS: Studio writes, public reads by accessCode
+    match /photoSessions/{sessionId} {
+      // Studio members can always read/write their own sessions
+      allow read: if isAuth() && resource.data.studioId == userStudio();
+      allow create: if isAuth() && (request.resource.data.studioId == userStudio() || isMasterOwner());
+      allow update: if isAuth() && (resource.data.studioId == userStudio() || isMasterOwner());
+      allow delete: if isAuth() && (resource.data.studioId == userStudio() || isMasterOwner());
+
+      // Photos sub-collection: studio writes, public reads (accessCode validated app-side)
+      match /photos/{photoId} {
+        allow read: if true;  // Public can read photos (URL-only, accessCode gate in app)
+        allow write: if isAuth();
+      }
+
+      // Selections sub-collection: public read+write (accessCode validated app-side)
+      match /selections/{selectionId} {
+        allow read, write: if true;
+      }
+    }
+
+    // EDITOR QUEUE: Studio members only
+    match /editorQueue/{taskId} {
+      allow read: if isAuth() && resource.data.studioId == userStudio();
+      allow create: if isAuth() && (request.resource.data.studioId == userStudio() || isMasterOwner());
+      allow update: if isAuth() && (resource.data.studioId == userStudio() || isMasterOwner());
+      allow delete: if isMasterOwner();
+    }
+
+    // ALBUM QUEUE: Studio members only
+    match /albumQueue/{albumId} {
+      allow read: if isAuth() && resource.data.studioId == userStudio();
+      allow create: if isAuth() && (request.resource.data.studioId == userStudio() || isMasterOwner());
+      allow update: if isAuth() && (resource.data.studioId == userStudio() || isMasterOwner());
+      allow delete: if isMasterOwner();
+    }
+
+    // DELIVERIES: Studio members + tracking code public read
+    match /deliveries/{deliveryId} {
+      allow read: if isAuth() && resource.data.studioId == userStudio();
+      allow create: if isAuth() && (request.resource.data.studioId == userStudio() || isMasterOwner());
+      allow update: if isAuth() && (resource.data.studioId == userStudio() || isMasterOwner());
+      allow delete: if isMasterOwner();
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
+    // IDENTITY & VERIFICATION SYSTEM
+    // ─────────────────────────────────────────────────────────────────────
+
+    // STAFF: Studio members read/write, PUBLIC can read by employeeId for QR verification
+    match /staff/{staffId} {
+      // Public: read is allowed (employeeId lookup for QR pages)
+      allow read: if true;
+      // Only authenticated studio members or master can create/update
+      allow create: if isAuth() && (request.resource.data.studioId == userStudio() || isMasterOwner());
+      allow update: if isAuth() && (resource.data.studioId == userStudio() || isMasterOwner());
+      // Only owners can delete
+      allow delete: if isMasterOwner() || (isAuth() && userRole() == 'owner');
+    }
+
+    // EMPLOYEE ID COUNTERS (subcollection of studios)
+    match /studios/{studioId}/counters/{counterId} {
+      allow read, write: if isMyStudio(studioId) || isMasterOwner();
+    }
+
+    // STAFF EVENTS: Studio members only, public read for verified pages
+    match /staffEvents/{eventId} {
+      allow read: if isAuth() && resource.data.studioId == userStudio();
+      allow create: if isAuth() && (request.resource.data.studioId == userStudio() || isMasterOwner());
+      allow update: if isAuth() && (request.resource.data.studioId == userStudio() || isMasterOwner());
+      allow delete: if isMasterOwner();
+    }
+
+    // ATTENDANCE: Studio members only
+    match /attendance/{recordId} {
+      allow read: if isAuth() && (resource.data.studioId == userStudio() || isMasterOwner());
+      allow create: if isAuth() && (request.resource.data.studioId == userStudio() || isMasterOwner());
+      allow update: if isAuth() && (request.resource.data.studioId == userStudio() || isMasterOwner());
+      allow delete: if isMasterOwner();
+    }
+
+    // STAFF NOTIFICATIONS: Only the staff member themselves or admin/owner
+    match /staffNotifications/{notifId} {
+      allow read: if isAuth() && (
+        resource.data.staffId == request.auth.uid ||
+        userRole() == 'owner' ||
+        userRole() == 'admin'
+      );
+      allow create: if isAuth() && (userRole() == 'owner' || userRole() == 'admin' || isMasterOwner());
+      allow update: if isAuth() && (
+        resource.data.staffId == request.auth.uid || isMasterOwner()
+      );
+      allow delete: if isMasterOwner();
     }
   }
 }

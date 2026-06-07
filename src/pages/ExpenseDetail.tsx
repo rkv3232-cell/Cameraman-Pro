@@ -9,6 +9,7 @@ import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Modal } from "../components/ui/Modal";
 import { formatMoney } from "../utils/currency";
+import { normalizeFirestoreDate } from "../utils/date";
 import { format } from "date-fns";
 import toast from "react-hot-toast";
 import {
@@ -199,11 +200,7 @@ export const ExpenseDetail = () => {
     const expenseDate = expense.date?.toDate ? expense.date.toDate() : new Date(expense.date as any);
     const createdAtDate = expense.createdAt?.toDate ? expense.createdAt.toDate() : null;
 
-    const bookingDate = linkedBooking?.eventDate?.toDate
-        ? linkedBooking.eventDate.toDate()
-        : linkedBooking?.eventDate
-            ? new Date(linkedBooking.eventDate as any)
-            : null;
+    const bookingDate = normalizeFirestoreDate(linkedBooking?.eventDate) || null;
 
     const statusMeta = linkedBooking
         ? (STATUS_CONFIG[linkedBooking.status] ?? STATUS_CONFIG.pending)

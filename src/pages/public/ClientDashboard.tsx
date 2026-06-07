@@ -4,6 +4,7 @@ import { LogOut, Camera, Calendar, Clock, ChevronRight, MessageSquare, Star, Ima
 import { format } from "date-fns";
 import { Link } from "react-router-dom";
 import { Logo } from "../../components/layout/Logo";
+import { normalizeFirestoreDate } from "../../utils/date";
 
 export const ClientDashboard = () => {
     const { userProfile, logout } = useAuth();
@@ -79,7 +80,7 @@ export const ClientDashboard = () => {
                                                 <div className="flex flex-wrap gap-4 text-sm text-slate-400">
                                                     <div className="flex items-center gap-1.5">
                                                         <Clock size={14} className="text-slate-500" />
-                                                        {format(booking.eventDate.toDate(), 'MMMM dd, yyyy')}
+                                                        {format(normalizeFirestoreDate(booking.eventDate) || new Date(), 'MMMM dd, yyyy')}
                                                     </div>
                                                     <div className="flex items-center gap-1.5 font-medium text-emerald-500">
                                                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />

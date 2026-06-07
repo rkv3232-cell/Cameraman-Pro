@@ -7,7 +7,15 @@ import toast from 'react-hot-toast';
 import { Input } from '../../components/ui/input';
 import { Button } from '../../components/ui/button';
 
+import { useSEO } from '../../hooks/useSEO';
+
 export const ClientLogin = () => {
+    useSEO({
+        title: "Client Portal Login | Cameraman Pro",
+        description: "Login to the Cameraman Pro client portal to access, view, select, and download your wedding, pre-wedding, or event photos, videos, and invoices.",
+        keywords: "client portal, photographer client login, photo selection portal, download photos",
+    });
+
     const [loginId, setLoginId] = useState('');
     const [pin, setPin] = useState('');
     const [loading, setLoading] = useState(false);

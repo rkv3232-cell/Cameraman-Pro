@@ -195,6 +195,49 @@ body * {
   background: var(--text-secondary);
 }
 
+/* Hide scrollbar utility */
+.no-scrollbar::-webkit-scrollbar {
+  display: none !important;
+}
+.no-scrollbar {
+  -ms-overflow-style: none !important;
+  scrollbar-width: none !important;
+}
+
+/* Active Menu Premium Gradient Styles */
+.active-menu-default {
+  background: linear-gradient(135deg, rgba(124, 58, 237, 0.15), rgba(168, 85, 247, 0.08)) !important;
+  border-color: rgba(168, 85, 247, 0.35) !important;
+  color: var(--accent-primary) !important;
+}
+.dark .active-menu-default {
+  background: linear-gradient(135deg, rgba(124, 58, 237, 0.22), rgba(168, 85, 247, 0.15)) !important;
+  border-color: rgba(168, 85, 247, 0.35) !important;
+  color: #F8FAFC !important;
+}
+
+.active-menu-gold {
+  background: linear-gradient(135deg, rgba(212, 175, 55, 0.15), rgba(184, 134, 11, 0.08)) !important;
+  border-color: rgba(212, 175, 55, 0.35) !important;
+  color: var(--accent-primary) !important;
+}
+.dark .active-menu-gold {
+  background: linear-gradient(135deg, rgba(212, 175, 55, 0.22), rgba(184, 134, 11, 0.15)) !important;
+  border-color: rgba(212, 175, 55, 0.35) !important;
+  color: #F8FAFC !important;
+}
+
+.active-menu-purple {
+  background: linear-gradient(135deg, rgba(124, 58, 237, 0.15), rgba(168, 85, 247, 0.08)) !important;
+  border-color: rgba(168, 85, 247, 0.35) !important;
+  color: var(--accent-secondary) !important;
+}
+.dark .active-menu-purple {
+  background: linear-gradient(135deg, rgba(124, 58, 237, 0.22), rgba(168, 85, 247, 0.15)) !important;
+  border-color: rgba(168, 85, 247, 0.35) !important;
+  color: #F8FAFC !important;
+}
+
 /* Selection */
 ::selection {
   background-color: var(--accent-primary);
@@ -348,16 +391,90 @@ body * {
   box-shadow: var(--shadow-glow-hover);
 }
 
-/* Safe Area Utilities for Android/iOS */
-.header-safe-area {
-  padding-top: calc(0.75rem + env(safe-area-inset-top, 0px)) !important;
-  height: auto !important;
-  min-height: calc(3.5rem + env(safe-area-inset-top, 0px)) !important;
+/* ============================================================
+   TOPBAR SAFE-AREA SYSTEM — Android WebView / Capacitor Fix
+   The topbar *owns* the safe-area. Body must NOT add padding-top.
+   ============================================================ */
+
+/* The sticky header shell: absorbs status bar via padding-top */
+.topbar {
+  position: sticky;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+
+  /* Grows to cover status bar, content sits in inner 72px zone */
+  padding-top: max(12px, env(safe-area-inset-top, 0px));
+  padding-left: 16px;
+  padding-right: 16px;
+  padding-bottom: 0;
+
+  /* Total height = fixed 72px + status bar */
+  height: calc(72px + max(12px, env(safe-area-inset-top, 0px)));
+
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;  /* push inner to bottom of safe zone */
+
+  background: rgba(0, 0, 0, 0.82);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+
+  /* Hardware acceleration for smooth scroll-sticky */
+  will-change: transform;
+  -webkit-transform: translateZ(0);
+  transform: translateZ(0);
 }
 
+/* Light mode override */
+:root[data-theme="light"] .topbar,
+.light .topbar {
+  background: rgba(255, 255, 255, 0.88);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+/* Inner row — always 72px tall, vertically centered */
+.topbar-inner {
+  height: 72px;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+/* Logo + hamburger group */
+.topbar-logo-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+/* Right-side actions */
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+/* Main content: offset = navbar shell height (no stacking) */
 @media (max-width: 1023px) {
   .main-safe-area {
-    padding-top: calc(4rem + env(safe-area-inset-top, 0px)) !important;
+    padding-top: calc(72px + max(12px, env(safe-area-inset-top, 0px))) !important;
+  }
+}
+
+/* Viewport Height Overrides for Android/iOS WebView */
+@supports (height: 100dvh) {
+  .h-screen {
+    height: 100dvh !important;
+  }
+  .min-h-screen {
+    min-height: 100dvh !important;
   }
 }
 

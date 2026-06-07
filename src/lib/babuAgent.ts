@@ -4,6 +4,7 @@ import {
     getPendingPostProduction
 } from './babuIntelligence';
 import { isToday, isTomorrow, isPast, differenceInDays } from 'date-fns';
+import { toSafeDate } from '../utils/date';
 
 /**
  * Alert severity levels
@@ -26,13 +27,6 @@ export interface AgentAlert {
     }[];
     autoExecutable?: boolean;
     dismissed?: boolean;
-}
-
-/**
- * Convert Timestamp to Date
- */
-function toDate(timestamp: any): Date {
-    return timestamp?.toDate ? timestamp.toDate() : new Date(timestamp);
 }
 
 /**
@@ -90,7 +84,7 @@ export class BabuAgent {
         const alerts: AgentAlert[] = [];
         const pendingBookings = this.bookings.filter(b =>
             b.status === 'pending' &&
-            isTomorrow(toDate(b.eventDate))
+            isTomorrow(toSafeDate(b.eventDate))
         );
 
         if (pendingBookings.length > 0) {
@@ -136,7 +130,7 @@ export class BabuAgent {
     private checkPaymentDelays(): AgentAlert[] {
         const alerts: AgentAlert[] = [];
         const overdueBookings = this.bookings.filter(b => {
-            const shootDate = toDate(b.eventDate);
+            const shootDate = toSafeDate(b.eventDate);
             const daysSinceShoot = differenceInDays(new Date(), shootDate);
             return (
                 b.financials.balanceDue > 0 &&
@@ -218,7 +212,7 @@ export class BabuAgent {
 
         // Check for shoots completed >7 days ago with <50% progress
         const delayedPP = pendingPP.filter(item => {
-            const shootDate = toDate(item.booking.eventDate);
+            const shootDate = toSafeDate(item.booking.eventDate);
             const daysSinceShoot = differenceInDays(new Date(), shootDate);
             return daysSinceShoot > 7 && item.progress < 50;
         });
@@ -257,7 +251,7 @@ export class BabuAgent {
     private checkMissingEquipmentAssignments(): AgentAlert[] {
         const alerts: AgentAlert[] = [];
         const upcomingWithoutGear = this.bookings.filter(b => {
-            const shootDate = toDate(b.eventDate);
+            const shootDate = toSafeDate(b.eventDate);
             return (
                 (isToday(shootDate) || isTomorrow(shootDate)) &&
                 b.status === 'confirmed' &&
@@ -267,7 +261,7 @@ export class BabuAgent {
 
         if (upcomingWithoutGear.length > 0) {
             upcomingWithoutGear.forEach(booking => {
-                const when = isToday(toDate(booking.eventDate)) ? 'आज' : 'कल';
+                const when = isToday(toSafeDate(booking.eventDate)) ? 'आज' : 'कल';
                 alerts.push({
                     id: `no-equipment-${booking.id}`,
                     severity: 'critical',
@@ -295,7 +289,7 @@ export class BabuAgent {
     private checkTodayShots(): AgentAlert[] {
         const alerts: AgentAlert[] = [];
         const todayShots = this.bookings.filter(b =>
-            isToday(toDate(b.eventDate)) &&
+            isToday(toSafeDate(b.eventDate)) &&
             (b.status === 'confirmed' || b.status === 'pending')
         );
 

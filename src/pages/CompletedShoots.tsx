@@ -9,8 +9,9 @@ import {
 import { BookingActions } from "../components/bookings/BookingActions";
 import { BookingModal } from "../components/bookings/BookingModal";
 import { Booking } from "../types";
-import { format } from "date-fns";
 import { formatMoney } from "../utils/currency";
+import { toSafeDate, safeFormat } from "../utils/date";
+import { format } from "date-fns";
 
 export const CompletedShoots = () => {
     const navigate = useNavigate();
@@ -27,7 +28,7 @@ export const CompletedShoots = () => {
     const completedBookings = bookings.filter(b => {
         if (b.shootStatus !== 'completed') return false;
 
-        const date = b.eventDate.toDate();
+        const date = toSafeDate(b.eventDate);
         const mainDateStr = format(date, 'yyyy-MM-dd');
         const formattedDate = format(date, 'MMM dd yyyy').toLowerCase();
         const subEventDates = b.subEvents?.map(se => se.date) || [];
@@ -39,8 +40,8 @@ export const CompletedShoots = () => {
         const subEventMatchesSearch = b.subEvents?.some(se => {
             const seTitle = se.title.toLowerCase();
             const seDate = se.date;
-            const seDateDisplay = format(new Date(se.date), 'dd/MM/yyyy');
-            const seDateShort = format(new Date(se.date), 'dd/MM');
+            const seDateDisplay = safeFormat(se.date, 'dd/MM/yyyy');
+            const seDateShort = safeFormat(se.date, 'dd/MM');
             return seTitle.includes(search) ||
                 seDate.includes(normalizedSearch) ||
                 seDateDisplay.includes(search) ||
@@ -87,7 +88,7 @@ export const CompletedShoots = () => {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
                     <div className="flex items-center gap-3">
-                        <div className="p-2 rounded-xl bg-emerald-500/10">
+                        <div className="p-2 rounded-[12px] bg-emerald-500/10">
                             <Trophy className="h-6 w-6 text-emerald-500" />
                         </div>
                         <div>
@@ -101,7 +102,7 @@ export const CompletedShoots = () => {
             </div>
 
             {/* Filters */}
-            <div className="flex flex-wrap gap-4 items-center bg-[var(--surface-base)] p-4 rounded-xl border border-[var(--border-light)] shadow-sm">
+            <div className="flex flex-wrap gap-4 items-center bg-[var(--surface-base)] p-4 rounded-[18px] border border-[var(--border-light)] shadow-sm">
                 <div className="relative flex-1 min-w-[200px]">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)] h-4 w-4" />
                     <Input
@@ -131,7 +132,7 @@ export const CompletedShoots = () => {
             </div>
 
             {/* Bookings Table / Cards */}
-            <div className="bg-[var(--surface-base)] rounded-xl border border-[var(--border-light)] overflow-hidden shadow-sm">
+            <div className="bg-[var(--surface-base)] rounded-[24px] border border-[var(--border-light)] overflow-hidden shadow-sm">
                 {loading ? (
                     <div className="p-12 text-center text-[var(--text-secondary)]">Loading completed shoots...</div>
                 ) : completedBookings.length > 0 ? (
@@ -166,7 +167,7 @@ export const CompletedShoots = () => {
                                         ].filter(Boolean);
 
                                         const completedAt = booking.completedAt
-                                            ? format((booking.completedAt as any).toDate(), 'MMM dd, yyyy')
+                                            ? safeFormat(booking.completedAt, 'MMM dd, yyyy')
                                             : null;
 
                                         return (
@@ -178,7 +179,7 @@ export const CompletedShoots = () => {
                                                 <td className="p-4 text-[var(--text-primary)]">
                                                     <div className="flex items-center gap-2 font-medium">
                                                         <CalendarIcon className="h-4 w-4 text-emerald-500" />
-                                                        {format(booking.eventDate.toDate(), 'MMM dd')}
+                                                        {safeFormat(booking.eventDate, 'MMM dd')}
                                                     </div>
                                                     {completedAt && (
                                                         <div className="text-[10px] text-emerald-500 pl-6 mt-0.5">
@@ -255,21 +256,21 @@ export const CompletedShoots = () => {
                                 const advance = booking.financials?.advancePaid ? booking.financials.advancePaid / 100 : 0;
                                 const due = amount - advance;
                                 const completedAt = booking.completedAt
-                                    ? format((booking.completedAt as any).toDate(), 'MMM dd, yyyy')
+                                    ? safeFormat(booking.completedAt, 'MMM dd, yyyy')
                                     : null;
 
                                 return (
                                     <div
                                         key={booking.id}
                                         onClick={() => navigate(`/bookings/${booking.id}`)}
-                                        className="bg-[var(--bg-secondary)] p-4 rounded-xl border border-emerald-200/60 dark:border-emerald-500/20 shadow-sm hover:border-emerald-400/50 transition-colors cursor-pointer"
+                                        className="bg-[var(--bg-secondary)] p-4 rounded-[18px] border border-emerald-200/60 dark:border-emerald-500/20 shadow-sm hover:border-emerald-400/50 transition-colors cursor-pointer"
                                     >
                                         <div className="flex justify-between items-start mb-2">
                                             <div>
                                                 <div className="font-bold text-[var(--text-primary)]">{booking.clientName}</div>
                                                 <div className="text-xs text-[var(--text-secondary)] mt-0.5 flex items-center gap-1">
                                                     <CalendarIcon className="w-3 h-3 text-emerald-500" />
-                                                    {format(booking.eventDate.toDate(), 'MMM dd, yyyy')} at {format(booking.eventDate.toDate(), 'h:mm a')}
+                                                    {safeFormat(booking.eventDate, 'MMM dd, yyyy')} at {safeFormat(booking.eventDate, 'h:mm a')}
                                                 </div>
                                                 {completedAt && (
                                                     <div className="text-[10px] text-emerald-500 mt-0.5">✓ Completed {completedAt}</div>

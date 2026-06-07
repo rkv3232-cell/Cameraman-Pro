@@ -8,6 +8,7 @@ import { Modal } from "../components/ui/Modal";
 import { Plus, Fuel, Users, Wrench, MoreHorizontal, Trash2, TrendingDown, TrendingUp, Search } from "lucide-react";
 import { ExpenseCategory } from "../types";
 import { formatMoney } from "../utils/currency";
+import { toSafeDate } from "../utils/date";
 import { format } from "date-fns";
 
 const CATEGORY_CONFIG: Record<ExpenseCategory, { label: string; labelHi: string; icon: any; color: string }> = {
@@ -39,7 +40,7 @@ export const Expenses = () => {
         const now = new Date();
         return bookings
             .filter(b => {
-                const d = b.eventDate?.toDate ? b.eventDate.toDate() : new Date(b.eventDate as any);
+                const d = toSafeDate(b.eventDate);
                 return (
                     d.getMonth() === now.getMonth() &&
                     d.getFullYear() === now.getFullYear() &&
@@ -73,7 +74,7 @@ export const Expenses = () => {
     const filteredExpenses = expenses.filter(e => {
         const matchesCategory = categoryFilter === 'all' || e.category === categoryFilter;
         
-        const d = e.date?.toDate ? e.date.toDate() : new Date(e.date as any);
+        const d = toSafeDate(e.date);
         const formattedDate = format(d, 'MMM dd yyyy').toLowerCase();
         
         const matchesSearch = !searchTerm ||
@@ -237,7 +238,7 @@ export const Expenses = () => {
                     {filteredExpenses.map(expense => {
                         const config = CATEGORY_CONFIG[expense.category];
                         const Icon = config?.icon || MoreHorizontal;
-                        const d = expense.date?.toDate ? expense.date.toDate() : new Date(expense.date as any);
+                        const d = toSafeDate(expense.date);
 
                         return (
                             <div

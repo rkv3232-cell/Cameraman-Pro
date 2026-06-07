@@ -1,5 +1,6 @@
 import { Booking, Expense, ExpenseCategory, ReportData } from '../types';
 import { startOfDay, endOfDay, startOfWeek, endOfWeek, isWithinInterval } from 'date-fns';
+import { normalizeFirestoreDate } from '../utils/date';
 
 /**
  * Generate Daily or Weekly Report from bookings + expenses data
@@ -22,7 +23,7 @@ export function generateReport(
 
     // Filter bookings in period
     const periodBookings = bookings.filter(b => {
-        const date = b.eventDate?.toDate ? b.eventDate.toDate() : new Date(b.eventDate as any);
+        const date = normalizeFirestoreDate(b.eventDate) || new Date();
         return isWithinInterval(date, interval);
     });
 

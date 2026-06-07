@@ -46,9 +46,19 @@ const DEMO_ORDERS: Record<string, { clientName: string; eventType: string; event
 
 type OrderResult = { clientName: string; eventType: string; eventDate: string; currentStage: number; message?: string } | null | 'not-found';
 
+import { useSEO } from "../../hooks/useSEO";
+
 export const TrackOrder = () => {
     const { lang } = useContext(LanguageContext);
     const hi = lang === 'hi';
+
+    useSEO({
+        title: hi ? "ऑर्डर ट्रैक करें | Cameraman Pro" : "Track Order Status | Cameraman Pro",
+        description: hi 
+          ? "अपना बुकिंग आईडी या मोबाइल नंबर दर्ज करके अपनी शादी या इवेंट फोटोग्राफी / एल्बम ऑर्डर का लाइव स्टेटस जानें।"
+          : "Check the live production and delivery status of your wedding photography, album creation, or birthday shoot order with your Booking ID.",
+        keywords: "track order, track album delivery, track photoshoot status, photography order tracking",
+    });
 
     const [query, setQuery] = useState('');
     const [result, setResult] = useState<OrderResult>(null);

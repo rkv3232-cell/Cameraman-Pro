@@ -21,6 +21,7 @@
         "allowSyntheticDefaultImports": true,
         /* Linting */
         "strict": true,
+        "types": ["vite-plugin-pwa/client"],
         "noUnusedLocals": true,
         "noUnusedParameters": true,
         "noFallthroughCasesInSwitch": true

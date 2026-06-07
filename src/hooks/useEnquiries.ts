@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import {
     collection,
     query,
+    where,
     orderBy,
     onSnapshot,
     addDoc,
@@ -15,7 +16,7 @@ import { Enquiry, EnquiryStatus } from "../types";
 import toast from "react-hot-toast";
 
 export const useEnquiries = () => {
-    const { studioId } = useAuth();
+    const { studioId, userProfile } = useAuth();
     const [enquiries, setEnquiries] = useState<Enquiry[]>([]);
     const [loading, setLoading] = useState(true);
 
@@ -26,13 +27,29 @@ export const useEnquiries = () => {
             return;
         }
 
+        const role = userProfile?.role || 'member';
+        const permissions = {
+            isAdmin: ['owner', 'admin'].includes(role),
+            isOwner: role === 'owner' || (userProfile?.email === 'ckv3232@gmail.com'),
+            isMaster: userProfile?.email === 'ckv3232@gmail.com'
+        };
+        const uid = userProfile?.uid;
+
+        console.log("Resolved Role:", role);
+        console.log("Resolved Permissions:", permissions);
+        console.log("Current UID:", uid);
+
+        const isMaster = userProfile?.email ? ["ckv3232@gmail.com"].includes(userProfile.email) : false;
         const enquiriesRef = collection(db, "enquiries");
 
-        // Fetch all enquiries ordered by newest first
-        const q = query(
-            enquiriesRef,
-            orderBy("createdAt", "desc")
-        );
+        // Fetch all enquiries if master owner, otherwise filter by studioId
+        const q = isMaster
+            ? query(enquiriesRef, orderBy("createdAt", "desc"))
+            : query(
+                enquiriesRef,
+                where("studioId", "==", studioId),
+                orderBy("createdAt", "desc")
+            );
 
         const unsubscribe = onSnapshot(q,
             (snapshot) => {

@@ -13,7 +13,7 @@
  */
 
 // ─── Shared Groq helper ──────────────────────────────────────────────────────
-import { callGroq } from './groq';
+import { callOpenRouter } from './openrouter';
 
 /** Strip markdown code fences and extract JSON object */
 function extractJSON(raw: string): any {
@@ -69,7 +69,7 @@ Return ONLY valid JSON in this exact structure:
   "tips": ["Tip 1 for better deal", "Tip 2"]
 }`;
 
-    const raw = await callGroq(prompt);
+    const raw = await callOpenRouter(prompt);
     const parsed = extractJSON(raw);
     return parsed as QuoteResult;
 }
@@ -110,7 +110,7 @@ Return ONLY valid JSON in this exact structure:
   "bio_line": "📸 Capturing your most precious moments | DM to book"
 }`;
 
-    const raw = await callGroq(prompt);
+    const raw = await callOpenRouter(prompt);
     const parsed = extractJSON(raw);
     return parsed as CaptionResult;
 }
@@ -174,7 +174,7 @@ Return ONLY valid JSON in this exact structure:
   "savingsTips": ["Tip 1", "Tip 2", "Tip 3"]
 }`;
 
-    const raw = await callGroq(prompt);
+    const raw = await callOpenRouter(prompt);
     const parsed = extractJSON(raw);
     return parsed as BudgetResult;
 }

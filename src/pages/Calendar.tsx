@@ -4,6 +4,7 @@ import {
     eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths, isToday
 } from "date-fns";
 import { useBookings } from "../hooks/useBookings";
+import { normalizeFirestoreDate } from "../utils/date";
 import { ChevronLeft, ChevronRight, Loader2, AlertTriangle } from "lucide-react";
 import { Booking } from "../types";
 
@@ -55,7 +56,8 @@ function getEffectiveType(booking: Booking, day: Date): string {
 function getBookingsForDay(bookings: Booking[], day: Date): Booking[] {
     return bookings.filter(b => {
         if (b.status !== 'confirmed' && b.status !== 'pending') return false;
-        const isMainDay = isSameDay(b.eventDate.toDate(), day);
+        let bookingDate = normalizeFirestoreDate(b.eventDate) || new Date();
+        const isMainDay = isSameDay(bookingDate, day);
         const dayStr = format(day, 'yyyy-MM-dd');
         const isSubDay = b.subEvents?.some(se => se.date === dayStr);
         return isMainDay || isSubDay;
@@ -250,7 +252,8 @@ export const Calendar = () => {
                                     const subEvent = booking.subEvents?.find(se => se.date === dayStr);
                                     if (subEvent) return subEvent.time;
                                 }
-                                return format(booking.eventDate.toDate(), 'h:mm a');
+                                    let bDate = normalizeFirestoreDate(booking.eventDate) || new Date();
+                                    return format(bDate, 'h:mm a');
                             })();
 
                             return (

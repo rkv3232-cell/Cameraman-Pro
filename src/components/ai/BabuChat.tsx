@@ -1,4 +1,4 @@
-﻿import * as React from 'react';
+import * as React from 'react';
 import { useRef, useEffect } from 'react';
 import { Send, Bot, Sparkles, AlertCircle, Mic,  } from 'lucide-react';
 import { clsx } from 'clsx';
@@ -91,8 +91,8 @@ export function BabuChat({
                         <Bot className="w-5 h-5 text-white" />
                     </div>
                     <div>
-                        <h3 className="font-bold text-lg leading-none">BABU</h3>
-                        <p className="text-xs text-indigo-200 mt-1">Studio Intelligence Manager</p>
+                        <h3 className="font-bold text-lg leading-none">BĀBU</h3>
+                        <p className="text-xs text-indigo-200 mt-1">स्टूडियो इंटेलिजेंस मैनेजर</p>
                     </div>
                 </div>
                 <VoiceIndicator className="text-indigo-100" />
@@ -107,16 +107,16 @@ export function BabuChat({
                         <p className="text-xs mt-1">आपका स्टूडियो मैनेजर। बताइए आज क्या काम है?</p>
                         <div className="grid grid-cols-1 gap-2 mt-6 w-full max-w-xs">
                             <button
-                                onClick={() => onSendMessage("आज का schedule क्या है?")}
+                                onClick={() => onSendMessage("आज का शेड्यूल क्या है?")}
                                 className="text-xs p-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg hover:border-indigo-400 dark:hover:border-indigo-500 transition-colors text-left"
                             >
-                                📅 आज का schedule क्या है?
+                                📅 आज का शेड्यूल क्या है?
                             </button>
                             <button
-                                onClick={() => onSendMessage("Pending payments दिखाओ")}
+                                onClick={() => onSendMessage("बकाया भुगतान दिखाओ")}
                                 className="text-xs p-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg hover:border-indigo-400 dark:hover:border-indigo-500 transition-colors text-left"
                             >
-                                💰 Pending payments दिखाओ
+                                💰 बकाया भुगतान दिखाओ
                             </button>
                             <button
                                 onClick={() => onSendMessage("Nayi booking create karni hai")}
@@ -242,20 +242,20 @@ export function BabuChat({
                                         {msg.metadata?.requires_confirmation && !msg.ui_components && (
                                             <div className="flex flex-col gap-2 w-full">
                                                 <p className="text-xs font-semibold text-red-500 flex items-center gap-1">
-                                                    <AlertCircle className="w-3 h-3" /> Confirmation Required
+                                                    <AlertCircle className="w-3 h-3" /> पुष्टि की आवश्यकता है
                                                 </p>
                                                 <div className="flex gap-2">
                                                     <button
-                                                        onClick={() => onSendMessage("Confirmed. Please proceed.")}
+                                                        onClick={() => onSendMessage("ठीक है, आगे बढ़ें।")}
                                                         className="px-3 py-1 bg-red-500 text-white text-xs rounded hover:bg-red-600 transition-colors font-medium"
                                                     >
-                                                        Yes, I'm sure
+                                                        हाँ, मुझे यकीन है
                                                     </button>
                                                     <button
-                                                        onClick={() => onSendMessage("Cancel")}
+                                                        onClick={() => onSendMessage("रद्द करें")}
                                                         className="px-3 py-1 bg-gray-200 text-gray-700 text-xs rounded hover:bg-gray-300 transition-colors font-medium"
                                                     >
-                                                        Cancel
+                                                        रद्द करें
                                                     </button>
                                                 </div>
                                             </div>
@@ -327,7 +327,7 @@ export function BabuChat({
                     </form>
                 </div>
                 <div className="text-center mt-2">
-                    <p className="text-[10px] text-gray-400">Deep Studio Intelligence • BĀBU v2.5</p>
+                    <p className="text-[10px] text-gray-400">डीप स्टूडियो इंटेलिजेंस • BĀBU v2.5</p>
                 </div>
             </div>
         </div>

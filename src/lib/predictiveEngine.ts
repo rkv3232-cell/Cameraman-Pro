@@ -1,12 +1,6 @@
 import { Booking, Expense, InventoryItem, PredictiveAlert } from '../types';
 import { addDays, isWithinInterval, startOfDay, endOfDay, differenceInDays } from 'date-fns';
-
-/**
- * Convert Timestamp to Date
- */
-function toDate(timestamp: any): Date {
-    return timestamp?.toDate ? timestamp.toDate() : new Date(timestamp);
-}
+import { toSafeDate } from '../utils/date';
 
 /**
  * BĀBU Predictive Intelligence Engine
@@ -47,7 +41,7 @@ export class PredictiveEngine {
         const next7Days = { start: startOfDay(now), end: endOfDay(addDays(now, 7)) };
 
         const upcomingShoots = this.bookings.filter(b => {
-            const date = toDate(b.eventDate);
+            const date = toSafeDate(b.eventDate);
             return (
                 isWithinInterval(date, next7Days) &&
                 (b.status === 'confirmed' || b.status === 'pending')
@@ -85,7 +79,7 @@ export class PredictiveEngine {
 
         // Get upcoming bookings with equipment
         const upcomingShoots = this.bookings.filter(b => {
-            const date = toDate(b.eventDate);
+            const date = toSafeDate(b.eventDate);
             return (
                 isWithinInterval(date, next7Days) &&
                 (b.status === 'confirmed' || b.status === 'pending')
@@ -100,7 +94,7 @@ export class PredictiveEngine {
         // Check for days with more shoots than cameras
         const dateMap: Record<string, number> = {};
         upcomingShoots.forEach(b => {
-            const dateKey = toDate(b.eventDate).toISOString().split('T')[0];
+            const dateKey = toSafeDate(b.eventDate).toISOString().split('T')[0];
             dateMap[dateKey] = (dateMap[dateKey] || 0) + 1;
         });
 
@@ -144,7 +138,7 @@ export class PredictiveEngine {
 
         if (pendingEditing.length >= 3) {
             const oldestDays = pendingEditing.reduce((max, b) => {
-                const days = differenceInDays(new Date(), toDate(b.eventDate));
+                const days = differenceInDays(new Date(), toSafeDate(b.eventDate));
                 return Math.max(max, days);
             }, 0);
 
@@ -177,12 +171,12 @@ export class PredictiveEngine {
         const currentYear = now.getFullYear();
 
         const thisMonthExpenses = this.expenses.filter(e => {
-            const d = toDate(e.date);
+            const d = toSafeDate(e.date);
             return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
         });
 
         const lastMonthExpenses = this.expenses.filter(e => {
-            const d = toDate(e.date);
+            const d = toSafeDate(e.date);
             const lm = currentMonth === 0 ? 11 : currentMonth - 1;
             const ly = currentMonth === 0 ? currentYear - 1 : currentYear;
             return d.getMonth() === lm && d.getFullYear() === ly;
@@ -224,7 +218,7 @@ export class PredictiveEngine {
         // This month's revenue
         const thisMonthRevenue = this.bookings
             .filter(b => {
-                const d = toDate(b.eventDate);
+                const d = toSafeDate(b.eventDate);
                 return (
                     d.getMonth() === currentMonth &&
                     d.getFullYear() === currentYear &&
@@ -236,7 +230,7 @@ export class PredictiveEngine {
         // This month's expenses
         const thisMonthExpenses = this.expenses
             .filter(e => {
-                const d = toDate(e.date);
+                const d = toSafeDate(e.date);
                 return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
             })
             .reduce((sum, e) => sum + e.amount, 0);

@@ -1,7 +1,7 @@
 
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { doc, onSnapshot, updateDoc, arrayUnion } from "firebase/firestore";
+import { doc, onSnapshot, updateDoc, arrayUnion, deleteField } from "firebase/firestore";
 import { db } from "../lib/firebase";
 import { Booking, PaymentMethod, TeamAssignment } from "../types";
 import { format } from "date-fns";
@@ -9,22 +9,24 @@ import { toast } from "react-hot-toast";
 import {
     ArrowLeft, Calendar, Phone,
     CheckCircle, AlertCircle, Edit2, MessageCircle,
-    Camera, DollarSign, Plus, CreditCard, MapPin, Bell, FileDown
+    Camera, DollarSign, Plus, CreditCard, MapPin, Bell, Send
 } from "lucide-react";
 import { formatMoney } from "../utils/currency";
+import { normalizeFirestoreDate } from "../utils/date";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Modal } from "../components/ui/Modal";
 import { BookingModal } from "../components/bookings/BookingModal";
 import { TeamAssignmentPanel } from "../components/bookings/TeamAssignmentPanel";
 import { WorkflowChecklist } from "../components/bookings/WorkflowChecklist";
-import { useTeam } from "../hooks/useTeam";
+import { subscribeToStaff } from "../services/staffService";
 import { toggleTask } from "../lib/workflowEngine";
 import { WorkflowTaskKey } from "../lib/workflowEngine";
 import {
     sendWhatsAppMessage,
     getBookingConfirmationMessage,
-    getPaymentReminderMessage
+    getPaymentReminderMessage,
+    shareFile
 } from "../utils/whatsapp";
 import { downloadInvoicePDF } from "../lib/invoiceGenerator";
 import { ClientPortalManager } from "../components/bookings/ClientPortalManager";
@@ -68,10 +70,24 @@ export const BookingDetails = () => {
     const [paymentForm, setPaymentForm] = useState<PaymentFormState>(EMPTY_PAYMENT_FORM);
     const [paymentSaving, setPaymentSaving] = useState(false);
     const [savingTeam, setSavingTeam] = useState(false);
+    const [crew, setCrew] = useState<any[]>([]);
 
-    // Team members + studio id for uploads
-    const { members } = useTeam();
     const { studioId } = useAuth();
+
+    // Fetch operational crew members
+    useEffect(() => {
+        if (!studioId) return;
+        return subscribeToStaff(studioId, (data) => {
+            setCrew(data.map(c => ({
+                uid: c.id,
+                name: c.fullName,
+                email: c.email || '',
+                phone: c.phone,
+                role: c.role,
+                status: c.status === 'active' ? 'active' : 'removed',
+            })));
+        });
+    }, [studioId]);
 
     // FETCH BOOKING
     useEffect(() => {
@@ -100,6 +116,11 @@ export const BookingDetails = () => {
         try {
             await updateDoc(doc(db, "bookings", booking.id), { status });
             toast.success(`Booking marked as ${status}`);
+            
+            if (status === 'completed') {
+                toast.success("Generating automated final invoice...");
+                await downloadInvoicePDF({ ...booking, status: 'completed' }, "Cameraman Pro");
+            }
         } catch (error) {
             toast.error("Failed to update status");
         }
@@ -112,8 +133,6 @@ export const BookingDetails = () => {
         try {
             // Build a flat dot-notation update — Firestore rejects `undefined` values
             // so we use deleteField() to explicitly clear optional fields instead.
-            const { deleteField } = await import('firebase/firestore');
-
             type UpdatePayload = Record<string, any>;
             const payload: UpdatePayload = {
                 'postProductionStatus.dataBackup': updated.dataBackup,
@@ -140,6 +159,11 @@ export const BookingDetails = () => {
                 if (updated.albumSent && booking.status === 'confirmed') {
                     await updateDoc(doc(db, 'bookings', booking.id), { status: 'completed' });
                     toast.success('🎉 Album Delivered! Booking marked as Completed.');
+                    
+                    setTimeout(async () => {
+                        toast.success("Generating automated final invoice...");
+                        await downloadInvoicePDF({ ...booking, status: 'completed' }, "Cameraman Pro");
+                    }, 1000);
                 } else if (!updated.albumSent && booking.status === 'completed') {
                     await updateDoc(doc(db, 'bookings', booking.id), { status: 'confirmed' });
                     toast.success('↩️ Delivery un-ticked. Booking reverted to Confirmed.');
@@ -225,11 +249,57 @@ export const BookingDetails = () => {
         sendWhatsAppMessage(booking.clientPhone, message);
     };
 
-    // ── Invoice PDF download ─────────────────────────────────────
-    const handleDownloadInvoice = () => {
+
+    const handleShareInvoice = async () => {
         if (!booking) return;
-        downloadInvoicePDF(booking, "Cameraman Pro");
-        toast.success("Invoice PDF downloaded!");
+        
+        const balanceVal = (booking.financials.totalAmount - booking.financials.advancePaid) / 100;
+        const upiLink = `upi://pay?pa=ckv3232@ybl&pn=Cameraman%20Pro&am=${balanceVal}&cu=INR&tn=Booking`;
+        const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=500x500&data=${encodeURIComponent(upiLink)}`;
+
+        // 1. Generate PDF
+        toast.loading("Preparing Invoice...", { id: 'share' });
+        const { generateInvoicePDF } = await import("../lib/invoiceGenerator");
+        const doc = await generateInvoicePDF(booking, "Cameraman Pro");
+        const pdfBlob = doc.output('blob');
+        const pdfFile = new File([pdfBlob], `Invoice_${booking.clientName.replace(/\s+/g, '_')}.pdf`, { type: 'application/pdf' });
+
+        // 2. Try to Share (Mobile)
+        const text = `Invoice for ${booking.clientName}\nUPI ID: ckv3232@ybl`;
+        const shared = await shareFile(pdfFile, text);
+        
+        if (shared) {
+            toast.success("Shared successfully!", { id: 'share' });
+        } else {
+            // 3. PC Fallback: Copy QR Image & Download PDF
+            try {
+                // Download PDF
+                doc.save(pdfFile.name);
+                
+                // Copy QR to clipboard
+                const resp = await fetch(qrUrl);
+                const blob = await resp.blob();
+                await navigator.clipboard.write([
+                    new ClipboardItem({ [blob.type]: blob })
+                ]);
+                
+                toast.success("PDF Downloaded & QR Code Copied! Paste (Ctrl+V) in WhatsApp.", { id: 'share', duration: 6000 });
+                
+                // Open WhatsApp
+                setTimeout(() => {
+                    const msg = getBookingConfirmationMessage(
+                        booking.clientName,
+                        (booking.subEvents ?? []),
+                        formatMoney(booking.financials.totalAmount / 100),
+                        formatMoney(booking.financials.advancePaid / 100),
+                        formatMoney(balanceVal)
+                    );
+                    sendWhatsAppMessage(booking.clientPhone, msg);
+                }, 2000);
+            } catch (err) {
+                toast.error("Could not copy QR code. Please download manually.", { id: 'share' });
+            }
+        }
     };
 
     // ── Save contract list to Firestore ──────────────────────────
@@ -249,7 +319,7 @@ export const BookingDetails = () => {
     if (!booking) return null;
 
     // Derived State
-    const eventDate = booking.eventDate?.toDate ? booking.eventDate.toDate() : new Date();
+    const eventDate = normalizeFirestoreDate(booking.eventDate) || new Date();
     const balance = booking.financials.totalAmount - booking.financials.advancePaid;
     // Paid percentage for progress bar
     const paidPct = booking.financials.totalAmount > 0
@@ -323,8 +393,8 @@ export const BookingDetails = () => {
                         </Button>
                     )}
                     {/* Invoice PDF Download */}
-                    <Button variant="secondary" onClick={handleDownloadInvoice}>
-                        <FileDown size={16} className="mr-2" /> Invoice
+                    <Button variant="secondary" onClick={handleShareInvoice} className="bg-indigo-50 border-indigo-200 text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-400 dark:border-indigo-500/20">
+                        <Send size={16} className="mr-2" /> Share Invoice & QR
                     </Button>
                 </div>
             </header>
@@ -448,7 +518,7 @@ export const BookingDetails = () => {
                     {/* ── TEAM ASSIGNMENT (modular) ── */}
                     <TeamAssignmentPanel
                         assignment={booking.teamAssignment}
-                        members={members}
+                        members={crew}
                         onUpdate={handleSaveTeam}
                         saving={savingTeam}
                     />

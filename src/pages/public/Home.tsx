@@ -3,10 +3,64 @@ import { Link } from "react-router-dom";
 import { useContext } from "react";
 import LanguageContext from "../../context/LanguageContext";
 import { ReviewsSection } from "../../components/public/ReviewsSection";
+import { useSEO } from "../../hooks/useSEO";
+import { useStructuredData } from "../../hooks/useStructuredData";
 
 export const Home = () => {
   const { lang } = useContext(LanguageContext);
   const hi = lang === 'hi';
+
+  useSEO({
+    title: hi ? "Cameraman Pro | प्रीमियम स्टूडियो प्रबंधन और बुकिंग सॉफ्टवेयर" : "Cameraman Pro | Premium Studio Management & Booking Software",
+    description: hi
+      ? "फोटोग्राफरों और वीडियोग्राफरों के लिए अंतिम स्टूडियो प्रबंधन सॉफ्टवेयर। वेडिंग, बर्थडे, प्री-वेडिंग शूट आसानी से बुक करें।"
+      : "The ultimate studio management and booking software for photographers, videographers, and creators. Easily schedule wedding, birthday, and pre-wedding shoots.",
+    keywords: "photography studio software, studio management software, wedding photographer software, photography CRM, booking software for photographers",
+  });
+
+  useStructuredData({
+    "@context": "https://schema.org",
+    "@type": "LocalBusiness",
+    "name": "Cameraman Pro",
+    "image": `${window.location.origin}/cameraman-pro.png`,
+    "@id": `${window.location.origin}/#localbusiness`,
+    "url": window.location.origin,
+    "telephone": "+919876543210",
+    "priceRange": "$$",
+    "address": {
+      "@type": "PostalAddress",
+      "streetAddress": "Main Market Road",
+      "addressLocality": "Jaipur",
+      "addressRegion": "Rajasthan",
+      "postalCode": "302001",
+      "addressCountry": "IN"
+    },
+    "geo": {
+      "@type": "GeoCoordinates",
+      "latitude": 26.9124,
+      "longitude": 75.7873
+    },
+    "openingHoursSpecification": {
+      "@type": "OpeningHoursSpecification",
+      "dayOfWeek": [
+        "Monday",
+        "Tuesday",
+        "Wednesday",
+        "Thursday",
+        "Friday",
+        "Saturday",
+        "Sunday"
+      ],
+      "opens": "09:00",
+      "closes": "21:00"
+    },
+    "sameAs": [
+      "https://www.facebook.com/cameramanpro",
+      "https://www.instagram.com/cameramanpro"
+    ]
+  }, "home-local-business-schema");
+
+  const isCapacitor = typeof window !== 'undefined' && (window as any).Capacitor?.platform && (window as any).Capacitor?.platform !== 'web';
 
   const services = [
     {
@@ -36,7 +90,7 @@ export const Home = () => {
   ];
 
   const trustPoints = [
-    { icon: Users, label: hi ? '500+ खुश क्लाइंट' : '500+ Happy Clients' },
+    { icon: Users, label: hi ? '1000+ खुश क्लाइंट' : '1000+ Happy Clients' },
     { icon: Star, label: hi ? '5 ⭐ रेटिंग' : '5 ⭐ Rating' },
     { icon: Award, label: hi ? '2018 से अनुभव' : 'Since 2018' },
     { icon: CheckCircle, label: hi ? '100% संतुष्टि गारंटी' : '100% Satisfaction Guarantee' },
@@ -47,7 +101,7 @@ export const Home = () => {
 
       {/* Hero */}
       <section className="relative min-h-[90vh] flex flex-col justify-center items-center text-center px-4 overflow-hidden pt-20">
-        <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1536098561742-ca998e48cbcc?q=80&w=2636&auto=format&fit=crop')] bg-cover bg-center" />
+        <div className="absolute inset-0 bg-[url('/luxury_wedding_shoot.png')] bg-cover bg-center" />
         <div className="absolute inset-0 bg-gradient-to-b from-black/75 via-black/55 to-[var(--bg-primary)]" />
         <div className="relative z-10 max-w-4xl mx-auto space-y-6">
           <div className="flex flex-wrap justify-center gap-2 mb-4">
@@ -73,6 +127,15 @@ export const Home = () => {
             <Link to="/book-now" className="px-8 py-4 rounded-full bg-gradient-to-r from-amber-500 to-rose-500 text-white font-bold hover:-translate-y-1 transition-all flex items-center gap-2 shadow-xl shadow-amber-500/30 text-lg">
               <Calendar size={22} /> {hi ? 'अभी बुक करें' : 'Book Now'} <ArrowRight size={22} />
             </Link>
+            {!isCapacitor && (
+              <a
+                href="/cameraman-pro.png"
+                download="cameraman-pro.apk"
+                className="px-8 py-4 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-white font-bold hover:bg-white/20 hover:-translate-y-1 transition-all flex items-center gap-2 text-lg"
+              >
+                📲 {hi ? 'एंड्रॉयड ऐप डाउनलोड' : 'Download Android App'}
+              </a>
+            )}
           </div>
         </div>
       </section>
@@ -113,6 +176,15 @@ export const Home = () => {
             <Link to="/book-now" className="px-10 py-4 rounded-full bg-[var(--accent-primary)] text-white font-bold hover:-translate-y-1 transition-all inline-flex items-center gap-2 shadow-lg shadow-[var(--accent-primary)]/30">
               {hi ? 'अभी बुक करें' : 'Book Now'} <ArrowRight size={20} />
             </Link>
+            {!isCapacitor && (
+              <a
+                href="/cameraman-pro.png"
+                download="cameraman-pro.apk"
+                className="px-10 py-4 rounded-full bg-[var(--bg-secondary)] border border-[var(--border-light)] text-[var(--text-primary)] font-bold hover:-translate-y-1 transition-all inline-flex items-center gap-2"
+              >
+                📲 {hi ? 'ऐप डाउनलोड करें' : 'Download Android App'}
+              </a>
+            )}
           </div>
         </div>
       </section>

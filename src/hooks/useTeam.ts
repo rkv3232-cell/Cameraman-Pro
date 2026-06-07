@@ -4,11 +4,8 @@ import {
     doc,
     getDoc,
     getDocs,
-    setDoc,
     updateDoc,
-    query,
-    where,
-    serverTimestamp,
+    deleteDoc,
     Timestamp,
 } from "firebase/firestore";
 import { db } from "../lib/firebase";
@@ -54,64 +51,125 @@ export const useTeam = (): UseTeamReturn => {
         }
     }, [studioId]);
 
-    // Fetch team members — uses the `users` collection
-    // since there's no dedicated members subcollection yet,
-    // we query all users whose studioId matches the current studio
+    // Fetch team members — queries workspaces/{studioId}/members subcollection for security and isolation
     const fetchTeamMembers = useCallback(async () => {
         if (!studioId || !user) return;
         setLoading(true);
         setError(null);
 
-        try {
-            // Get all users who belong to this studio
-            const usersRef = collection(db, "users");
-            const q = query(usersRef, where("studioId", "==", studioId));
-            const snapshot = await getDocs(q);
+        console.log("[useTeam] fetchTeamMembers — studioId:", studioId, "user:", user.uid);
 
+        try {
+            // Load members from workspaces/{studioId}/members subcollection
+            const membersRef = collection(db, "workspaces", studioId, "members");
+            const membersSnap = await getDocs(membersRef);
+            
             const studioRef = doc(db, "studios", studioId);
             const studioSnap = await getDoc(studioRef);
             const studioData = studioSnap.exists() ? studioSnap.data() : null;
             const ownerId = studioData?.ownerId;
 
-            const memberList: TeamMember[] = snapshot.docs.map((docSnap) => {
-                const data = docSnap.data();
-                const isOwner = data.uid === ownerId;
+            console.log("[useTeam] Studio owner:", ownerId);
 
-                // Determine role
+            // Fetch owner profile for details
+            let ownerProfile: any = null;
+            if (ownerId) {
+                const ownerSnap = await getDoc(doc(db, "users", ownerId));
+                if (ownerSnap.exists()) {
+                    ownerProfile = { uid: ownerId, ...ownerSnap.data() };
+                }
+            }
+
+            const rawMembersList = [];
+            for (const memberDoc of membersSnap.docs) {
+                const mData = memberDoc.data();
+                const mUid = memberDoc.id || mData.uid || mData.userId;
+                
+                // Fetch the actual user profile for live details
+                const uSnap = await getDoc(doc(db, "users", mUid));
+                if (uSnap.exists()) {
+                    rawMembersList.push({
+                        uid: mUid,
+                        ...uSnap.data(),
+                        role: mData.role || uSnap.data().role || 'member',
+                        joinedAt: mData.joinedAt || uSnap.data().createdAt || new Date().toISOString()
+                    });
+                } else {
+                    // Fallback using member doc data
+                    rawMembersList.push({
+                        uid: mUid,
+                        name: mData.name || mData.displayName || "Unknown",
+                        email: mData.email || "",
+                        phone: mData.phone || "",
+                        photoURL: mData.photoURL || "",
+                        role: mData.role || "member",
+                        joinedAt: mData.joinedAt || new Date().toISOString()
+                    });
+                }
+            }
+
+            // Ensure the owner is in the list
+            if (ownerProfile && !rawMembersList.some(m => m.uid === ownerId)) {
+                rawMembersList.push({
+                    uid: ownerId,
+                    name: ownerProfile.name || ownerProfile.displayName || "Unknown",
+                    email: ownerProfile.email || "",
+                    phone: ownerProfile.phone || "",
+                    photoURL: ownerProfile.photoURL || "",
+                    role: 'owner',
+                    joinedAt: ownerProfile.createdAt || new Date().toISOString()
+                });
+            }
+
+            const memberList: TeamMember[] = rawMembersList.map((m: any) => {
+                const isOwner = m.uid === ownerId;
                 let role: TeamRole = 'member';
                 if (isOwner) {
                     role = 'owner';
-                } else if (data.role === 'admin') {
-                    role = 'admin';
-                } else {
-                    role = 'member';
+                } else if (m.role && ['admin', 'manager', 'member', 'accountant', 'coordinator'].includes(m.role)) {
+                    role = m.role as TeamRole;
                 }
 
-                // Set current user's role
-                if (data.uid === user.uid) {
+                if (m.uid === user.uid) {
                     setCurrentUserRole(role);
                 }
 
                 return {
-                    uid: data.uid,
-                    name: data.name || "Unknown",
-                    email: data.email || "",
-                    phone: data.phone || "",
-                    photoURL: data.photoURL || user?.photoURL || "",
+                    uid: m.uid,
+                    name: m.name || m.displayName || "Unknown",
+                    email: m.email || "",
+                    phone: m.phone || "",
+                    photoURL: m.photoURL || "",
                     role,
                     status: 'active' as const,
-                    joinedAt: data.createdAt || Timestamp.now(),
+                    joinedAt: m.joinedAt instanceof Timestamp ? m.joinedAt : (typeof m.joinedAt === 'string' ? Timestamp.fromDate(new Date(m.joinedAt)) : Timestamp.now()),
                     addedBy: isOwner ? undefined : ownerId,
                 };
             });
 
-            // Sort: Owner first, then Admin, then Members
-            const roleOrder: Record<TeamRole, number> = { owner: 0, admin: 1, member: 2 };
+            // Sort: Owner first, then Admin, then Managers, Coordinators, Accountants, Members
+            const roleOrder: Record<TeamRole, number> = {
+                owner: 0,
+                admin: 1,
+                manager: 2,
+                coordinator: 3,
+                accountant: 4,
+                member: 5
+            };
             memberList.sort((a, b) => roleOrder[a.role] - roleOrder[b.role]);
+
+            // Temporary debug logging as requested
+            console.log("[DEBUG] CURRENT USER ID:", user.uid);
+            console.log("[DEBUG] CURRENT WORKSPACE ID:", studioId);
+            const currentUserInList = memberList.find(m => m.uid === user.uid);
+            const activeRoleVal = currentUserInList ? currentUserInList.role : "none";
+            console.log("[DEBUG] ACTIVE ROLE:", activeRoleVal);
+            console.log("[DEBUG] MEMBER COUNT:", memberList.length);
+            console.log("[DEBUG] WORKSPACE MEMBERS QUERY RESULT:", memberList.map(m => ({ uid: m.uid, email: m.email, role: m.role })));
 
             setMembers(memberList);
         } catch (err: any) {
-            console.error("Error fetching team members:", err);
+            console.error("[useTeam] Error fetching team members:", err);
             setError(err.message || "Failed to load team members");
         } finally {
             setLoading(false);
@@ -127,7 +185,7 @@ export const useTeam = (): UseTeamReturn => {
     // Derived state
     const isOwner = currentUserRole === 'owner';
     const isAdmin = currentUserRole === 'admin' || currentUserRole === 'owner';
-    const canManageTeam = isOwner || isAdmin;
+    const canManageTeam = isOwner || isAdmin || currentUserRole === 'manager';
 
     // Add a member by email
     const addMember = async (_email: string, _role: TeamRole) => {
@@ -164,9 +222,14 @@ export const useTeam = (): UseTeamReturn => {
         }
 
         try {
+            // Update role in workspaces subcollection
+            const memberDocRef = doc(db, "workspaces", studioId, "members", memberUid);
+            await updateDoc(memberDocRef, { role: newRole });
+
+            // Update role in users collection
             const userRef = doc(db, "users", memberUid);
-            const firestoreRole = newRole === 'admin' ? 'admin' : 'assistant';
-            await updateDoc(userRef, { role: firestoreRole });
+            await updateDoc(userRef, { role: newRole });
+            
             await fetchTeamMembers(); // Refresh
         } catch (err: any) {
             console.error("Error updating role:", err);
@@ -174,7 +237,7 @@ export const useTeam = (): UseTeamReturn => {
         }
     };
 
-    // Remove a member (switch their studioId away)
+    // Remove a member (authoritative eviction flow)
     const removeMember = async (memberUid: string) => {
         if (!studioId || !user) throw new Error("Not authenticated");
         if (!canManageTeam) throw new Error("Insufficient permissions");
@@ -198,32 +261,32 @@ export const useTeam = (): UseTeamReturn => {
         }
 
         try {
-            // Generate a new personal studio for the removed member
-            // so they still have access to the app
-            const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-            let newCode = '';
-            for (let i = 0; i < 6; i++) {
-                newCode += chars.charAt(Math.floor(Math.random() * chars.length));
-            }
+            console.log("[removeMember] Evicting member:", memberUid, "from workspace:", studioId);
 
-            // Create a new personal studio for them
-            await setDoc(doc(db, "studios", newCode), {
-                name: `${targetMember.name}'s Studio`,
-                ownerId: memberUid,
-                createdAt: serverTimestamp(),
-                settings: { currency: 'INR' }
-            });
+            // Optimistically update local state for immediate UI update
+            setMembers(prev => prev.filter(m => m.uid !== memberUid));
 
-            // Switch their studio
+            // STEP 1: Delete membership doc from workspaces/{studioId}/members/{memberUid}
+            const memberDocRef = doc(db, "workspaces", studioId, "members", memberUid);
+            await deleteDoc(memberDocRef);
+            console.log("[removeMember] Membership doc deleted from workspaces");
+
+            // STEP 2: Nullify all workspace-related fields on the evicted user's profile
             const userRef = doc(db, "users", memberUid);
             await updateDoc(userRef, {
-                studioId: newCode,
-                role: 'admin'
+                studioId: null,
+                role: null,
+                workspaceRole: null,
+                workspaceStatus: 'removed',
+                activeWorkspaceId: null,
+                joinedWorkspaceId: null,
+                workspacePermissions: null
             });
+            console.log("[removeMember] User profile fields successfully nulled");
 
             await fetchTeamMembers(); // Refresh
         } catch (err: any) {
-            console.error("Error removing member:", err);
+            console.error("[removeMember] Error:", err);
             throw new Error(err.message || "Failed to remove member");
         }
     };

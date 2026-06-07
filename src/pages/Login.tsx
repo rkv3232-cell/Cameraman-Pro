@@ -1,4 +1,4 @@
-﻿import { useState, FormEvent } from "react";
+import { useState, FormEvent } from "react";
 import { Navigate,  } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import { Logo } from "../components/layout/Logo";
@@ -8,12 +8,13 @@ import toast from "react-hot-toast";
 type AuthTab = "login" | "register" | "forgot";
 
 export const Login = () => {
-    const { loginWithGoogle, loginWithEmail, registerWithEmail, resetPassword, user, loading, isOwner } = useAuth();
+    const { loginWithGoogle, loginWithEmail, registerWithEmail, resetPassword, user, userProfile, loading } = useAuth();
     
 
     const [tab, setTab] = useState<AuthTab>("login");
     const [showPassword, setShowPassword] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isGoogleLoading, setIsGoogleLoading] = useState(false);
 
     // Form fields
     const [email, setEmail] = useState("");
@@ -21,20 +22,46 @@ export const Login = () => {
     const [confirmPassword, setConfirmPassword] = useState("");
     const [displayName, setDisplayName] = useState("");
 
-    if (user && !loading) {
-        if (isOwner) return <Navigate to="/dashboard" replace />;
-        return <Navigate to="/client/dashboard" replace />;
+    if (user && !loading && userProfile) {
+        const staffRoles = ['owner', 'admin', 'manager', 'member', 'accountant', 'coordinator'];
+        if (staffRoles.includes(userProfile.role)) {
+            console.log(`[Login Redirect] User authenticated with staff/owner role (${userProfile.role}). Redirecting to /dashboard`);
+            return <Navigate to="/dashboard" replace />;
+        } else {
+            console.log(`[Login Redirect] User authenticated with client/other role (${userProfile.role}). Redirecting to /client/dashboard`);
+            return <Navigate to="/client/dashboard" replace />;
+        }
     }
 
     const handleGoogleLogin = async () => {
+        if (isGoogleLoading || isSubmitting) return;
+        setIsGoogleLoading(true);
         try {
-            setIsSubmitting(true);
+            // Keep synchronous to prevent popup blockers from rendering about:blank
             await loginWithGoogle();
             toast.success("Welcome! 🎉");
-        } catch {
-            toast.error("Google login failed.");
+        } catch (error: any) {
+            console.error("Google login failed:", error);
+            let msg = "Google login failed.";
+            const code = error?.code || error?.message;
+            if (code) {
+                if (code.includes("popup-closed-by-user") || code.includes("popup_closed_by_user")) {
+                    msg = "Login window closed before completion.";
+                } else if (code.includes("unauthorized-domain") || code.includes("unauthorized_domain")) {
+                    msg = "This domain is not authorized for Google Sign-In.";
+                } else if (code.includes("network-request-failed") || code.includes("network_request_failed")) {
+                    msg = "Network request failed. Please check your connection.";
+                } else if (code.includes("operation-not-supported-in-this-environment")) {
+                    msg = "This action is not supported in this browser environment.";
+                } else if (code.includes("popup-blocked")) {
+                    msg = "Sign-in popup was blocked by your browser. Please allow popups.";
+                } else {
+                    msg = `Google login failed: ${code.replace("auth/", "").replace(/-/g, " ")}`;
+                }
+            }
+            toast.error(msg);
         } finally {
-            setIsSubmitting(false);
+            setIsGoogleLoading(false);
         }
     };
 
@@ -179,8 +206,8 @@ export const Login = () => {
                             </div>
                             <button
                                 onClick={handleGoogleLogin}
-                                disabled={isSubmitting}
-                                className="w-full flex items-center justify-center gap-3 bg-white hover:bg-slate-100 text-slate-900 font-bold py-3 rounded-xl transition shadow-md"
+                                disabled={isSubmitting || isGoogleLoading}
+                                className="w-full flex items-center justify-center gap-3 bg-white hover:bg-slate-100 disabled:opacity-60 text-slate-900 font-bold py-3 rounded-xl transition shadow-md"
                             >
                                 <Chrome className="h-4 w-4 text-[#4285F4]" />
                                 Continue with Google

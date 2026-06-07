@@ -8,10 +8,13 @@ import { Search, Plus, Trash2, Camera, Zap, Disc, Box, PenTool } from "lucide-re
 import { EquipmentCategory } from "../types";
 import { formatMoney } from "../utils/currency";
 import { EQUIPMENT_STATUS_CONFIG } from "../lib/equipmentConflict";
+import { useAuth } from "../hooks/useAuth";
+import toast from "react-hot-toast";
 
 export const Inventory = () => {
     const navigate = useNavigate();
     const { inventory, loading, addEquipment, deleteEquipment } = useInventory();
+    const { isAdmin } = useAuth();
     const [searchTerm, setSearchTerm] = useState("");
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [categoryFilter, setCategoryFilter] = useState<EquipmentCategory | 'all'>('all');
@@ -43,6 +46,10 @@ export const Inventory = () => {
     };
 
     const handleDelete = async (id: string) => {
+        if (!isAdmin) {
+            toast.error("Access denied. Only Owners/Admins can delete inventory items.");
+            return;
+        }
         if (confirm("Are you sure you want to delete this item?")) {
             await deleteEquipment(id);
         }
@@ -136,15 +143,17 @@ export const Inventory = () => {
                                 >
                                     View Details
                                 </Button>
-                                <button
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleDelete(item.id);
-                                    }}
-                                    className="p-2 text-[var(--text-tertiary)] hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition-colors"
-                                >
-                                    <Trash2 size={16} />
-                                </button>
+                                {isAdmin && (
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleDelete(item.id);
+                                        }}
+                                        className="p-2 text-[var(--text-tertiary)] hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition-colors"
+                                    >
+                                        <Trash2 size={16} />
+                                    </button>
+                                )}
                             </div>
                         </div>
                     ))}

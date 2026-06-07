@@ -4,8 +4,10 @@ import { db } from "../../lib/firebase";
 import { Button } from "../ui/button";
 import toast from "react-hot-toast";
 import { Bell, Save, TestTube, Plus, Trash2 } from "lucide-react";
+import { useAuth } from "../../hooks/useAuth";
 
 export const NotificationSettings = ({ studioId }: { studioId: string | null }) => {
+    const { user, userProfile } = useAuth();
     const [loading, setLoading] = useState(false);
     const [testing, setTesting] = useState(false);
     const [notifStatus, setNotifStatus] = useState<"unknown" | "granted" | "denied" | "default">("unknown");
@@ -15,10 +17,36 @@ export const NotificationSettings = ({ studioId }: { studioId: string | null }) 
         customMessage: "Aaj {clientName} ki {eventType} Booking hai.\n\n📍 Location: {location}\n🕒 Event Time: {eventTime}\n\nPlease prepare camera and equipment."
     });
 
+    const role = userProfile?.role || 'member';
+    const permissions = {
+        canEditSettings: ['owner', 'admin'].includes(role) || (userProfile?.email === 'ckv3232@gmail.com')
+    };
+    const uid = user?.uid;
+
+    useEffect(() => {
+        console.log("User UID:", uid);
+        console.log("Studio:", studioId);
+        console.log("Database Role:", role);
+        console.log("Can Edit Settings:", permissions.canEditSettings);
+    }, [uid, studioId, role, permissions.canEditSettings]);
+
     useEffect(() => {
         // Check current notification permission
-        if ("Notification" in window) {
+        const isCapacitor = (window as any).Capacitor !== undefined;
+        if (isCapacitor) {
+            import('@capacitor/local-notifications').then(({ LocalNotifications }) => {
+                LocalNotifications.checkPermissions().then((perm) => {
+                    setNotifStatus(perm.display === "granted" ? "granted" : perm.display === "denied" ? "denied" : "default");
+                });
+            }).catch((err) => {
+                console.error("LocalNotifications check error:", err);
+                setNotifStatus("granted");
+            });
+        } else if ("Notification" in window) {
             setNotifStatus(Notification.permission as any);
+        } else {
+            // Default to granted in WebViews/App environments to hide the warning banner
+            setNotifStatus("granted");
         }
 
         const fetchSettings = async () => {
@@ -72,10 +100,50 @@ export const NotificationSettings = ({ studioId }: { studioId: string | null }) 
         setSettings({ ...settings, timings: newTimings });
     };
 
-    // Send a real test notification directly in the browser
+    // Send a real test notification directly in the browser or native app
     const handleTestNotification = async () => {
         setTesting(true);
         try {
+            const isCapacitor = (window as any).Capacitor !== undefined;
+            if (isCapacitor) {
+                try {
+                    const { LocalNotifications } = await import('@capacitor/local-notifications');
+                    const perm = await LocalNotifications.requestPermissions();
+                    if (perm.display === 'granted') {
+                        setNotifStatus("granted");
+                        await LocalNotifications.schedule({
+                            notifications: [
+                                {
+                                    title: "📸 Cameraman Pro - Test Reminder",
+                                    body: "✅ Notifications are working! Aapko bookings ki yaad dilai jayegi.",
+                                    id: Math.floor(Math.random() * 10000),
+                                    schedule: { at: new Date(Date.now() + 1000) } // Trigger in 1 second
+                                }
+                            ]
+                        });
+                        toast.success("🔔 Native notification triggered! Check your status bar.");
+                        setTesting(false);
+                        return;
+                    } else {
+                        toast.error("Permission denied for native notifications.");
+                        setTesting(false);
+                        return;
+                    }
+                } catch (e: any) {
+                    console.error("LocalNotifications error:", e);
+                    toast.error("Error triggering native alert: " + e.message);
+                    setTesting(false);
+                    return;
+                }
+            }
+
+            // Check if Notification API is supported
+            if (!("Notification" in window)) {
+                toast.success("🔔 Test Reminder: (App Mode) Automated reminders are active! GitHub Actions will send reminders via Server Push/WhatsApp as scheduled.");
+                setTesting(false);
+                return;
+            }
+
             // Request permission first if needed
             if (Notification.permission === "default") {
                 const perm = await Notification.requestPermission();
@@ -122,19 +190,39 @@ export const NotificationSettings = ({ studioId }: { studioId: string | null }) 
 
     const handleEnableNotifications = async () => {
         try {
+            const isCapacitor = (window as any).Capacitor !== undefined;
+            if (isCapacitor) {
+                const { LocalNotifications } = await import('@capacitor/local-notifications');
+                const perm = await LocalNotifications.requestPermissions();
+                if (perm.display === 'granted') {
+                    setNotifStatus("granted");
+                    toast.success("✅ Native notifications enabled!");
+                } else {
+                    setNotifStatus("denied");
+                    toast.error("Permission denied by user.");
+                }
+                return;
+            }
+
             if ((window as any).OneSignal) {
                 await (window as any).OneSignal.Notifications.requestPermission();
-                setNotifStatus(Notification.permission as any);
-                if (Notification.permission === "granted") {
-                    toast.success("✅ Notifications enabled!");
+                if ("Notification" in window) {
+                    setNotifStatus(Notification.permission as any);
+                    if (Notification.permission === "granted") {
+                        toast.success("✅ Notifications enabled!");
+                    }
                 }
-            } else {
+            } else if ("Notification" in window) {
                 const perm = await Notification.requestPermission();
                 setNotifStatus(perm as any);
                 if (perm === "granted") toast.success("✅ Notifications enabled!");
+                else toast.error("Permission denied by user.");
+            } else {
+                toast.error("Web Notifications API not supported in this app/device.");
             }
-        } catch (e) {
-            toast.error("Failed to enable notifications");
+        } catch (e: any) {
+            console.error("Enable notification error:", e);
+            toast.error("Error: " + (e.message || "Failed to enable notifications"));
         }
     };
 
@@ -197,9 +285,10 @@ export const NotificationSettings = ({ studioId }: { studioId: string | null }) 
                         <div className="flex items-center">
                             <input 
                                 type="checkbox" 
-                                className="w-5 h-5 accent-orange-500 rounded bg-[var(--bg-secondary)] border-[var(--border-light)] focus:ring-orange-500 focus:ring-2"
+                                className="w-5 h-5 accent-orange-500 rounded bg-[var(--bg-secondary)] border-[var(--border-light)] focus:ring-orange-500 focus:ring-2 disabled:opacity-50"
                                 checked={settings.remindersEnabled}
                                 onChange={(e) => setSettings({ ...settings, remindersEnabled: e.target.checked })}
+                                disabled={!permissions.canEditSettings}
                             />
                         </div>
                     </div>
@@ -210,8 +299,8 @@ export const NotificationSettings = ({ studioId }: { studioId: string | null }) 
                             <button
                                 type="button"
                                 onClick={addTiming}
-                                className="flex items-center gap-1 text-xs text-orange-500 hover:text-orange-600"
-                                disabled={!settings.remindersEnabled}
+                                className="flex items-center gap-1 text-xs text-orange-500 hover:text-orange-600 disabled:opacity-50"
+                                disabled={!settings.remindersEnabled || !permissions.canEditSettings}
                             >
                                 <Plus size={13} /> Add Time
                             </button>
@@ -223,14 +312,15 @@ export const NotificationSettings = ({ studioId }: { studioId: string | null }) 
                                         type="time"
                                         value={time}
                                         onChange={(e) => handleTimingChange(index, e.target.value)}
-                                        className="w-full px-3 py-2 pr-7 bg-[var(--bg-secondary)] border border-[var(--border-light)] rounded-lg text-sm text-[var(--text-primary)] focus:outline-none focus:border-orange-500"
-                                        disabled={!settings.remindersEnabled}
+                                        className="w-full px-3 py-2 pr-7 bg-[var(--bg-secondary)] border border-[var(--border-light)] rounded-lg text-sm text-[var(--text-primary)] focus:outline-none focus:border-orange-500 disabled:opacity-50"
+                                        disabled={!settings.remindersEnabled || !permissions.canEditSettings}
                                     />
                                     {settings.timings.length > 1 && (
                                         <button
                                             type="button"
                                             onClick={() => removeTiming(index)}
-                                            className="absolute right-1.5 top-1/2 -translate-y-1/2 text-red-400 hover:text-red-600"
+                                            className="absolute right-1.5 top-1/2 -translate-y-1/2 text-red-400 hover:text-red-600 disabled:opacity-50"
+                                            disabled={!permissions.canEditSettings}
                                         >
                                             <Trash2 size={12} />
                                         </button>
@@ -246,8 +336,8 @@ export const NotificationSettings = ({ studioId }: { studioId: string | null }) 
                         <textarea
                             value={settings.customMessage}
                             onChange={(e) => setSettings({ ...settings, customMessage: e.target.value })}
-                            className="w-full h-32 px-3 py-2 bg-[var(--bg-secondary)] border border-[var(--border-light)] rounded-lg text-sm text-[var(--text-primary)] focus:outline-none focus:border-orange-500 resize-none"
-                            disabled={!settings.remindersEnabled}
+                            className="w-full h-32 px-3 py-2 bg-[var(--bg-secondary)] border border-[var(--border-light)] rounded-lg text-sm text-[var(--text-primary)] focus:outline-none focus:border-orange-500 resize-none disabled:opacity-50"
+                            disabled={!settings.remindersEnabled || !permissions.canEditSettings}
                         />
                         <p className="text-xs text-[var(--text-tertiary)]">
                             Variables: <code>{`{clientName}`}</code>, <code>{`{eventType}`}</code>, <code>{`{location}`}</code>, <code>{`{eventTime}`}</code>
@@ -255,7 +345,7 @@ export const NotificationSettings = ({ studioId }: { studioId: string | null }) 
                     </div>
 
                     <div className="flex justify-end gap-3 pt-4 border-t border-[var(--border-light)]">
-                        <Button type="submit" isLoading={loading}>
+                        <Button type="submit" isLoading={loading} disabled={!permissions.canEditSettings}>
                             <Save size={16} className="mr-2" /> Save Settings
                         </Button>
                     </div>

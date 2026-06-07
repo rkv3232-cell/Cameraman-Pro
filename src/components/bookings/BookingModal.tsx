@@ -7,6 +7,7 @@ import { User, IndianRupee, FileText, Plus, Phone, Mail, MapPin, Calendar, Clock
 import { sendWhatsAppMessage, getBookingConfirmationMessage } from "../../utils/whatsapp";
 import { format } from "date-fns";
 import { formatMoney } from "../../utils/currency";
+import { normalizeFirestoreDate } from "../../utils/date";
 import { motion, AnimatePresence } from "framer-motion";
 
 const CleanInput = ({ label, icon: Icon, value, onChange, type = "text", placeholder = "", required = false, className = "" }: any) => {
@@ -70,13 +71,17 @@ export const BookingModal = ({ isOpen, onClose, booking, onSave }: BookingModalP
                     setSubEvents(booking.subEvents);
                 } else if (booking.eventDate) {
                     try {
-                        const date = booking.eventDate.toDate();
-                        setSubEvents([{
-                            id: '1',
-                            title: booking.eventType || 'Event',
-                            date: format(date, "yyyy-MM-dd"),
-                            time: format(date, 'HH:mm')
-                        }]);
+                        const normalized = normalizeFirestoreDate(booking.eventDate);
+                        if (normalized) {
+                            setSubEvents([{
+                                id: '1',
+                                title: booking.eventType || 'Event',
+                                date: format(normalized, "yyyy-MM-dd"),
+                                time: format(normalized, 'HH:mm')
+                            }]);
+                        } else {
+                            setSubEvents([]);
+                        }
                     } catch (e) {
                         setSubEvents([]);
                     }

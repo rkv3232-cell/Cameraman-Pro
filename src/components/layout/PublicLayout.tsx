@@ -10,6 +10,7 @@ import { CustomerBabu } from "../ai/CustomerBabu";
 export const PublicLayout = () => {
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const location = useLocation();
+    const isCapacitor = typeof window !== "undefined" && (window as any).Capacitor?.platform && (window as any).Capacitor?.platform !== 'web';
 
     const { lang, toggleLanguage } = useContext(LanguageContext);
 
@@ -33,92 +34,93 @@ export const PublicLayout = () => {
     return (
         <div className="min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)] font-sans antialiased selection:bg-[var(--accent-primary)] selection:text-white flex flex-col">
 
-            {/* Navbar */}
-            <nav
-                className="sticky top-0 w-full z-50 transition-all duration-300 bg-white/70 dark:bg-black/60 backdrop-blur-md border-b border-gray-200 dark:border-gray-700 shadow-sm py-4"
-            >
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                    <div className="flex justify-between items-center">
+            {/* Navbar — topbar shell absorbs Android status bar on mobile */}
+            <nav className="topbar w-full transition-all duration-300">
+                <div className="topbar-inner max-w-7xl mx-auto w-full">
+                    {/* Logo */}
+                    <div className="topbar-logo-group">
                         <Link to="/" className="flex items-center gap-2 group">
                             <div className="p-2 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl shadow-lg transform group-hover:scale-105 transition-all">
-                                <Camera size={24} className="text-white" />
+                                <Camera size={22} className="text-white" />
                             </div>
-                            <span className="font-bold text-xl tracking-tight text-gray-900 dark:text-white">Cameraman Pro</span>
+                            <span className="font-bold text-lg tracking-tight text-[var(--text-primary)] dark:text-white">Cameraman Pro</span>
                         </Link>
+                    </div>
 
-                        {/* Desktop Nav */}
-                        <div className="hidden md:flex items-center gap-6">
-                            {navLinks.map((link) => (
-                                <Link
-                                    key={link.path}
-                                    to={link.path}
-                                    className={cn(
-                                        "text-sm font-semibold transition-colors hover:text-[var(--accent-primary)]",
-                                        location.pathname === link.path
-                                            ? "text-[var(--accent-primary)]"
-                                            : "text-gray-700 dark:text-gray-200"
-                                    )}
-                                >
-                                    {text.nav[link.key][lang]}
-                                </Link>
-                            ))}
-                            {extraLinks.map((link) => (
-                                <Link
-                                    key={link.path}
-                                    to={link.path}
-                                    className={cn(
-                                        "text-sm font-semibold transition-colors hover:text-[var(--accent-primary)]",
-                                        location.pathname === link.path
-                                            ? "text-[var(--accent-primary)]"
-                                            : "text-gray-700 dark:text-gray-200"
-                                    )}
-                                >
-                                    {lang === 'hi' ? link.labelHi : link.label}
-                                </Link>
-                            ))}
-                        </div>
-
-                        {/* Right Actions */}
-                        <div className="hidden md:flex items-center gap-3">
-                            <button
-                                onClick={toggleLanguage}
-                                className="px-3 py-2 rounded-full border border-gray-200 dark:border-gray-700 text-sm font-semibold hover:border-[var(--accent-primary)] transition-all bg-transparent text-gray-900 dark:text-white"
-                            >
-                                {lang === "en" ? "हिंदी" : "English"}
-                            </button>
-                            <ThemeToggle />
+                    {/* Desktop Nav links */}
+                    <div className="hidden md:flex items-center gap-6">
+                        {navLinks.map((link) => (
                             <Link
-                                to="/enquiry"
-                                className="px-6 py-2.5 rounded-full bg-[var(--accent-primary)] text-white text-sm font-bold shadow-lg shadow-[var(--accent-primary)]/20 hover:shadow-[var(--accent-primary)]/40 hover:-translate-y-0.5 transition-all"
+                                key={link.path}
+                                to={link.path}
+                                className={cn(
+                                    "text-sm font-semibold transition-colors hover:text-[var(--accent-primary)]",
+                                    location.pathname === link.path
+                                        ? "text-[var(--accent-primary)]"
+                                        : "text-gray-700 dark:text-gray-200"
+                                )}
                             >
-                                {text.shared.bookNow[lang]}
+                                {text.nav[link.key][lang]}
                             </Link>
-                        </div>
+                        ))}
+                        {extraLinks.map((link) => (
+                            <Link
+                                key={link.path}
+                                to={link.path}
+                                className={cn(
+                                    "text-sm font-semibold transition-colors hover:text-[var(--accent-primary)]",
+                                    location.pathname === link.path
+                                        ? "text-[var(--accent-primary)]"
+                                        : "text-gray-700 dark:text-gray-200"
+                                )}
+                            >
+                                {lang === 'hi' ? link.labelHi : link.label}
+                            </Link>
+                        ))}
+                        {!isCapacitor && (
+                            <a
+                                href="/cameraman-pro.png"
+                                download="cameraman-pro.apk"
+                                className="text-sm font-semibold text-indigo-500 hover:text-indigo-600 transition-colors flex items-center gap-1"
+                            >
+                                📲 {lang === 'hi' ? 'ऐप डाउनलोड' : 'Download App'}
+                            </a>
+                        )}
+                    </div>
 
-                        {/* Mobile Menu Button */}
-                        <div className="md:hidden flex items-center gap-3">
-                            <button
-                                onClick={toggleLanguage}
-                                className="px-3 py-2 rounded-full border border-gray-200 dark:border-gray-700 text-xs font-semibold transition-all hover:border-[var(--accent-primary)] text-gray-900 dark:text-white"
-                            >
-                                {lang === "en" ? "हिंदी" : "English"}
-                            </button>
-                            <ThemeToggle />
-                            <button
-                                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                                className="text-gray-900 dark:text-white p-2"
-                            >
-                                {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
-                            </button>
-                        </div>
+                    {/* Right actions */}
+                    <div className="topbar-actions">
+                        {/* Language toggle */}
+                        <button
+                            onClick={toggleLanguage}
+                            className="px-3 py-1.5 rounded-full border border-[var(--border-medium)] dark:border-gray-700 text-xs font-semibold hover:border-[var(--accent-primary)] transition-all text-[var(--text-primary)] dark:text-white"
+                        >
+                            {lang === "en" ? "हिंदी" : "English"}
+                        </button>
+                        <ThemeToggle />
+                        {/* Desktop Book Now */}
+                        <Link
+                            to="/enquiry"
+                            className="hidden md:inline-flex px-5 py-2 rounded-full bg-[var(--accent-primary)] text-white text-sm font-bold shadow-lg shadow-[var(--accent-primary)]/20 hover:shadow-[var(--accent-primary)]/40 hover:-translate-y-0.5 transition-all"
+                        >
+                            {text.shared.bookNow[lang]}
+                        </Link>
+                        {/* Mobile hamburger */}
+                        <button
+                            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                            className="md:hidden text-[var(--text-primary)] dark:text-white p-2 rounded-xl hover:bg-white/10 transition-all active:scale-95"
+                            aria-label="Toggle menu"
+                        >
+                            {mobileMenuOpen ? <X size={22} /> : <Menu size={22} />}
+                        </button>
                     </div>
                 </div>
 
-                {/* Mobile Nav */}
+                {/* Mobile dropdown menu */}
                 <div
                     className={cn(
-                        "md:hidden absolute top-full left-0 w-full bg-[var(--surface-base)] border-b border-[var(--border-light)] overflow-hidden transition-all duration-300 ease-in-out",
-                        mobileMenuOpen ? "max-h-96 opacity-100" : "max-h-0 opacity-0"
+                        "md:hidden absolute top-full left-0 w-full bg-[var(--surface-base)] dark:bg-black/90 backdrop-blur-xl border-b border-[var(--border-light)] overflow-hidden transition-all duration-300 ease-in-out",
+                        mobileMenuOpen ? "max-h-[500px] opacity-100" : "max-h-0 opacity-0"
                     )}
                 >
                     <div className="px-4 py-6 flex flex-col gap-4">
@@ -150,6 +152,15 @@ export const PublicLayout = () => {
                                 {lang === 'hi' ? link.labelHi : link.label}
                             </Link>
                         ))}
+                        {!isCapacitor && (
+                            <a
+                                href="/cameraman-pro.png"
+                                download="cameraman-pro.apk"
+                                className="text-base font-medium py-2 border-b border-[var(--border-light)] text-indigo-500 flex items-center gap-2"
+                            >
+                                📲 {lang === 'hi' ? 'ऐप डाउनलोड करें' : 'Download Android App'}
+                            </a>
+                        )}
                         <Link
                             to="/enquiry"
                             className="mt-4 px-5 py-3 rounded-xl bg-[var(--accent-primary)] text-white text-center font-bold shadow-lg"

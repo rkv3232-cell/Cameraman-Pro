@@ -11,6 +11,8 @@ import {
 } from "date-fns";
 
 import { toast } from "react-hot-toast";
+import { useAuth } from "../hooks/useAuth";
+import { normalizeFirestoreDate } from "../utils/date";
 import {
     ArrowLeft, Camera, Zap, Disc, Box, PenTool,
     CheckCircle, AlertTriangle, Edit2, Trash2, Calendar,
@@ -175,6 +177,7 @@ const UsageCalendar = ({ bookings, equipmentId }: UsageCalendarProps) => {
 export const EquipmentDetails = () => {
     const { equipmentId } = useParams();
     const navigate = useNavigate();
+    const { isAdmin } = useAuth();
     const [equipment, setEquipment] = useState<InventoryItem | null>(null);
     const [bookings, setBookings] = useState<Booking[]>([]);
     const [loading, setLoading] = useState(true);
@@ -201,7 +204,7 @@ export const EquipmentDetails = () => {
 
     // FETCH RELATED BOOKINGS
     useEffect(() => {
-        if (!equipment) return;
+        if (!equipment?.studioId || !equipmentId) return;
         const q = query(
             collection(db, "bookings"),
             where("studioId", "==", equipment.studioId),
@@ -215,7 +218,7 @@ export const EquipmentDetails = () => {
             setBookings(related);
         });
         return () => unsubscribe();
-    }, [equipment, equipmentId]);
+    }, [equipment?.studioId, equipmentId]);
 
     // ACTIONS
     const updateStatus = async (status: InventoryItem['status']) => {
@@ -230,6 +233,10 @@ export const EquipmentDetails = () => {
 
     const handleDelete = async () => {
         if (!equipment) return;
+        if (!isAdmin) {
+            toast.error("Access denied. Only Owners/Admins can delete inventory items.");
+            return;
+        }
         if (!confirm("Are you sure you want to remove this equipment?")) return;
         try {
             await updateDoc(doc(db, "inventory", equipment.id), { status: "deleted" });
@@ -345,9 +352,11 @@ export const EquipmentDetails = () => {
                         );
                     })}
 
-                    <Button variant="danger" onClick={handleDelete}>
-                        <Trash2 size={16} className="mr-2" /> Remove
-                    </Button>
+                    {isAdmin && (
+                        <Button variant="danger" onClick={handleDelete}>
+                            <Trash2 size={16} className="mr-2" /> Remove
+                        </Button>
+                    )}
                 </div>
             </header>
 
@@ -442,7 +451,7 @@ export const EquipmentDetails = () => {
                                     </div>
                                     <div className="flex items-center gap-2 text-[var(--text-secondary)]">
                                         <Calendar size={14} className="text-[var(--accent-tertiary)]" />
-                                        <span>{format(currentBooking.eventDate.toDate(), 'dd MMM yyyy')}</span>
+                                        <span>{format(normalizeFirestoreDate(currentBooking.eventDate) || new Date(), 'dd MMM yyyy')}</span>
                                     </div>
                                     {currentBooking.venue && (
                                         <div className="flex items-center gap-2 text-[var(--text-secondary)]">
@@ -557,7 +566,7 @@ export const EquipmentDetails = () => {
                                                         onClick={() => navigate(`/bookings/${b.id}`)}
                                                         className="block w-full text-left text-xs text-red-700 dark:text-red-300 hover:underline"
                                                     >
-                                                        → {b.clientName} — {format(b.eventDate.toDate(), 'dd MMM')}
+                                                        → {b.clientName} — {format(normalizeFirestoreDate(b.eventDate) || new Date(), 'dd MMM')}
                                                     </button>
                                                 ))}
                                         </div>
@@ -588,7 +597,7 @@ export const EquipmentDetails = () => {
                                                     <AlertTriangle size={12} className="text-amber-500" />
                                                 )}
                                             </div>
-                                            <p className="text-xs text-[var(--text-tertiary)]">{format(booking.eventDate.toDate(), 'dd MMM yyyy')}</p>
+                                            <p className="text-xs text-[var(--text-tertiary)]">{format(normalizeFirestoreDate(booking.eventDate) || new Date(), 'dd MMM yyyy')}</p>
                                         </div>
                                     ))}
                                 </div>
