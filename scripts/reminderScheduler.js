@@ -71,9 +71,11 @@ function chunkArray(arr, size) {
 // ─── 3. Main ──────────────────────────────────────────────────────────────────
 
 async function runReminderScheduler() {
-  const now         = new Date();
-  const todayStr    = getISTDate(now);   // e.g. "2026-06-07"
-  const currentTime = getISTTime(now);   // e.g. "16:40"
+  const now = new Date();
+
+  // Allow overriding time for testing: FORCE_IST_TIME=HH:mm  FORCE_IST_DATE=YYYY-MM-DD
+  const todayStr    = process.env.FORCE_IST_DATE || getISTDate(now);
+  const currentTime = process.env.FORCE_IST_TIME || getISTTime(now);
 
   console.log('═══════════════════════════════════════════════════════');
   console.log('📸  Cameraman Pro — Reminder Scheduler');
